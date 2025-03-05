@@ -8,15 +8,10 @@ import {
   text,
   timestamp,
   varchar,
+  mysqlEnum as enumType,
 } from "drizzle-orm/mysql-core";
 import { type AdapterAccount } from "next-auth/adapters";
 
-/**
- * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
- * database instance for multiple projects.
- *
- * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
- */
 export const createTable = mysqlTableCreator((name) => `thinkhub_${name}`);
 
 export const posts = createTable(
@@ -35,7 +30,7 @@ export const posts = createTable(
   (example) => ({
     createdByIdIdx: index("created_by_idx").on(example.createdById),
     nameIndex: index("name_idx").on(example.name),
-  })
+  }),
 );
 
 export const users = createTable("user", {
@@ -83,7 +78,7 @@ export const accounts = createTable(
       columns: [account.provider, account.providerAccountId],
     }),
     userIdIdx: index("account_user_id_idx").on(account.userId),
-  })
+  }),
 );
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
@@ -103,7 +98,7 @@ export const sessions = createTable(
   },
   (session) => ({
     userIdIdx: index("session_user_id_idx").on(session.userId),
-  })
+  }),
 );
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -119,5 +114,84 @@ export const verificationTokens = createTable(
   },
   (vt) => ({
     compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
-  })
+  }),
 );
+
+export const projects = createTable("project", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  createdBy: varchar("created_by", { length: 255 })
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+});
+
+export const projectMembers = createTable("project_member", {
+  id: int("id").primaryKey().autoincrement(),
+  projectId: int("project_id")
+    .notNull()
+    .references(() => projects.id),
+  userId: varchar("user_id", { length: 255 })
+    .notNull()
+    .references(() => users.id),
+  role: enumType("role", ["Manager", "Researcher", "Viewer"]).notNull(),
+  joinedAt: timestamp("joined_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const milestones = createTable("milestone", {
+  id: int("id").primaryKey().autoincrement(),
+  projectId: int("project_id")
+    .notNull()
+    .references(() => projects.id),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  dueDate: timestamp("due_date").notNull(),
+  status: enumType("status", ["Planned", "In Progress", "Completed"]),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+});
+
+export const tasks = createTable("task", {
+  id: int("id").primaryKey().autoincrement(),
+  projectId: int("project_id")
+    .notNull()
+    .references(() => projects.id),
+  milestoneId: int("milestone_id").references(() => milestones.id),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  status: enumType("status", ["To Do", "In Progress", "Completed"]),
+  createdBy: varchar("created_by", { length: 255 })
+    .notNull()
+    .references(() => users.id),
+  assignedTo: varchar("assigned_to", { length: 255 }).references(
+    () => users.id,
+  ),
+  dueDate: timestamp("due_date"),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+  documentId: int("document_id").references(() => documents.id),
+  priority: enumType("priority", ["1", "2", "3", "4", "5"]),
+  policyHeader: varchar("policy_header", { length: 255 }),
+  policyContent: text("policy_content"),
+  recommendedContent: text("recommended_content"),
+});
+
+export const documents = createTable("document", {
+  id: int("id").primaryKey().autoincrement(),
+  projectId: int("project_id")
+    .notNull()
+    .references(() => projects.id),
+  uploadedBy: varchar("uploaded_by", { length: 255 })
+    .notNull()
+    .references(() => users.id),
+  title: varchar("title", { length: 255 }).notNull(),
+  fileUrl: varchar("file_url", { length: 255 }),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+});
