@@ -4,6 +4,22 @@ import { useParams } from "next/navigation";
 import { api } from "~/trpc/react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
 
+interface Task {
+  id: number;
+  title: string;
+  description: string;
+  createdBy: string;
+  order: number;
+}
+
+interface Milestone {
+  id: number;
+  title: string;
+  description: string;
+  dueDate: string;
+  tasks: Task[];
+}
+
 const ProjectDetailsPage: React.FC = () => {
   const params = useParams();
   const projectId = params.projectId ? Number(params.projectId) : null;
@@ -25,6 +41,16 @@ const ProjectDetailsPage: React.FC = () => {
     onError: (error) => {
       console.error("Error updating task:", error);
       alert("Failed to update task. Please try again.");
+    },
+  });
+
+  const reorderTasksMutation = api.task.reorderTasks.useMutation({
+    onSuccess: () => {
+      refetchMilestones();
+    },
+    onError: (error) => {
+      console.error("Error reordering tasks:", error);
+      alert("Failed to reorder tasks. Please try again.");
     },
   });
 
@@ -69,7 +95,8 @@ const ProjectDetailsPage: React.FC = () => {
         projectId: projectId!,
         milestoneId: selectedMilestoneId,
         title: newTaskTitle,
-        createdBy: project.createdBy,
+        createdBy: project!.createdBy,
+        order: 0,
       });
     }
   };
@@ -79,7 +106,22 @@ const ProjectDetailsPage: React.FC = () => {
 
     const { source, destination, draggableId } = result;
 
-    if (source.droppableId !== destination.droppableId) {
+    if (source.droppableId === destination.droppableId) {
+      const milestone = milestones?.find(m => m.id.toString() === source.droppableId) as Milestone;
+      if (milestone) {
+        const tasks = Array.from(milestone.tasks);
+        const [movedTask] = tasks.splice(source.index, 1);
+        if (movedTask) {
+          tasks.splice(destination.index, 0, movedTask);
+        }
+
+        milestone.tasks = tasks;
+        reorderTasksMutation.mutate({
+          milestoneId: milestone.id,
+          tasks: tasks.map(task => task.id),
+        });
+      }
+    } else {
       const destinationMilestoneId = parseInt(destination.droppableId);
       const taskId = parseInt(draggableId);
 
@@ -92,9 +134,9 @@ const ProjectDetailsPage: React.FC = () => {
 
   return (
     <div>
-      <h1>{project.name}</h1>
-      <p>{project.description}</p>
-      <p>Created at: {new Date(project.createdAt).toLocaleString()}</p>
+      <h1>{project?.name}</h1>
+      <p>{project?.description}</p>
+      <p>Created at: {project ? new Date(project.createdAt).toLocaleString() : ""}</p>
 
       <h2>Milestones</h2>
       <button onClick={() => setShowMilestoneModal(true)}>Add Milestone</button>
@@ -120,7 +162,7 @@ const ProjectDetailsPage: React.FC = () => {
                   <p>Due Date: {new Date(milestone.dueDate).toLocaleDateString()}</p>
                   <h4>Tasks</h4>
                   <ul>
-                    {milestone.tasks.map((task: { id: number; title: string; description: string; createdBy: string }, taskIndex: number) => (
+                    {milestone.tasks.map((task: Task, taskIndex: number) => (
                       <Draggable key={task.id} draggableId={task.id.toString()} index={taskIndex}>
                         {(provided, snapshot) => (
                           <li

@@ -179,6 +179,7 @@ export const tasks = createTable("task", {
   policyHeader: varchar("policy_header", { length: 255 }),
   policyContent: text("policy_content"),
   recommendedContent: text("recommended_content"),
+  order: int("order").notNull(),
 });
 
 export const documents = createTable("document", {
