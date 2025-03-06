@@ -7,6 +7,8 @@ import {
   publicProcedure,
 } from "~/server/api/trpc";
 import { projects, projectMembers } from "~/server/db/schema";
+import { eq } from "drizzle-orm";
+
 
 export const projectRouter = createTRPCRouter({
   create: protectedProcedure
@@ -38,5 +40,14 @@ export const projectRouter = createTRPCRouter({
         userId: input.userId,
         role: input.role,
       });
+    }),
+    getProjectDetails: protectedProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const project = await ctx.db.query.projects.findFirst({
+        where: (fields) => eq(fields.id, input.projectId),
+      });
+
+      return project ?? null;
     }),
 });
