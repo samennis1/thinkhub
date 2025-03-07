@@ -1,11 +1,5 @@
-//make roots for project
 import { z } from "zod";
-
-import {
-  createTRPCRouter,
-  protectedProcedure,
-  publicProcedure,
-} from "~/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { projects, projectMembers, documents } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -25,6 +19,13 @@ export const projectRouter = createTRPCRouter({
       });
     }),
 
+  getProjects: protectedProcedure.query(async ({ ctx }) => {
+    return ctx.db
+      .select()
+      .from(projects)
+      .where(eq(projects.createdBy, ctx.session.user.id));
+  }),
+
   addMember: protectedProcedure
     .input(
       z.object({
@@ -40,6 +41,7 @@ export const projectRouter = createTRPCRouter({
         role: input.role,
       });
     }),
+
   getProjectDetails: protectedProcedure
     .input(z.object({ projectId: z.number() }))
     .query(async ({ ctx, input }) => {
