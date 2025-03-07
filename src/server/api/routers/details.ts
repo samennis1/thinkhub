@@ -53,33 +53,31 @@ export const detailsRouter = createTRPCRouter({
       });
     }),
 
-  createTask: protectedProcedure
-    .input(
-      z.object({
-        projectId: z.number(),
-        milestoneId: z.number(),
-        title: z.string(),
-        createdBy: z.string(),
-        order: z.number().optional(),
-      }),
-    )
-    .mutation(async ({ input, ctx }) => {
-      const result = await ctx.db
-        .select({ count: sql<number>`COUNT(*)` })
-        .from(tasks)
-        .where(eq(tasks.milestoneId, input.milestoneId))
-        .execute();
-
-      const taskCount = result[0]?.count ?? 0;
-
-      return ctx.db.insert(tasks).values({
-        projectId: input.projectId,
-        milestoneId: input.milestoneId,
-        title: input.title,
-        createdBy: input.createdBy,
-        order: input.order !== undefined ? input.order : taskCount,
-      });
-    }),
+        createTask: protectedProcedure
+        .input(
+            z.object({
+                projectId: z.number(),
+                milestoneId: z.number(),
+                title: z.string().optional(),
+                createdBy: z.string(),
+                order: z.number(),
+            })
+        )
+        .mutation(async ({ input, ctx }) => {
+            const result = await ctx.db
+                .insert(tasks)
+                .values({
+                    projectId: input.projectId,
+                    milestoneId: input.milestoneId,
+                    title: input.title ?? "",
+                    createdBy: input.createdBy,
+                    order: input.order,
+                })
+                .$returningId();
+    
+            return result[0];
+        }),
+    
 
   getTasks: publicProcedure
     .input(z.object({ milestoneId: z.number() }))

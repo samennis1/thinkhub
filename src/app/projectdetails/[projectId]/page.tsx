@@ -1,13 +1,10 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { api } from "~/trpc/react";
-import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-  DropResult,
-} from "react-beautiful-dnd";
+
+import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
+import { set } from "zod";
 
 interface Task {
   id: number;
@@ -28,6 +25,14 @@ interface Milestone {
 const ProjectDetailsPage: React.FC = () => {
   const params = useParams();
   const projectId = params.projectId ? Number(params.projectId) : null;
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  
+  useEffect(() => {
+    if (selectedTaskId !== null) {
+      console.log("Selected Task ID:", selectedTaskId);
+    }
+  }, [selectedTaskId]);
+
 
   const {
     data: project,
@@ -101,17 +106,29 @@ const ProjectDetailsPage: React.FC = () => {
     });
   };
 
-  const handleAddTask = () => {
-    if (selectedMilestoneId !== null) {
-      addTaskMutation.mutate({
-        projectId: projectId!,
-        milestoneId: selectedMilestoneId,
-        title: newTaskTitle,
-        createdBy: project!.createdBy,
-        order: 0,
-      });
+  const handleAddTask = (milestoneId: number, tasksCount: number) => {
+    if (milestoneId !== null) {
+      addTaskMutation.mutate(
+        {
+          projectId: projectId!,
+          milestoneId,
+          title: "",
+          createdBy: project!.createdBy,
+          order: tasksCount,
+        },
+        {
+          onSuccess: (data) => {
+            if (data?.id) {
+              setSelectedTaskId(data.id);
+              // console.log("selected task id", selectedTaskId);
+            }
+            refetchMilestones();
+          },
+        }
+      );
     }
   };
+  
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -203,24 +220,25 @@ const ProjectDetailsPage: React.FC = () => {
                               padding: 16,
                               margin: "0 0 8px 0",
                               minHeight: "50px",
-                              backgroundColor: snapshot.isDragging
-                                ? "#263B4A"
-                                : "#456C86",
+
+                              backgroundColor: snapshot.isDragging ? "#263B4A" : "#456C86",
                               color: "white",
                               ...provided.draggableProps.style,
                             }}
+                            onClick={() => setSelectedTaskId(task.id)}
                           >
                             Task {taskIndex + 1}: {task.title}
                           </li>
                         )}
                       </Draggable>
                     ))}
-                    {provided.placeholder}
                   </ul>
+
                   <button
                     onClick={() => {
                       setSelectedMilestoneId(milestone.id);
-                      setShowTaskModal(true);
+                      handleAddTask(milestone.id, milestone.tasks.length);
+                      // console.log("selected task id", selectedTaskId);
                     }}
                   >
                     Add Task
@@ -267,23 +285,8 @@ const ProjectDetailsPage: React.FC = () => {
         </div>
       )}
 
-      {showTaskModal && (
-        <div className="modal">
-          <div className="modal-content">
-            <span className="close" onClick={() => setShowTaskModal(false)}>
-              &times;
-            </span>
-            <h2>Add Task</h2>
-            <input
-              type="text"
-              placeholder="Task Title"
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-            />
-            <button onClick={handleAddTask}>Submit</button>
-          </div>
-        </div>
-      )}
+      {
+}
     </div>
   );
 };
