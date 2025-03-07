@@ -3,23 +3,40 @@
 import { useState, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { api } from "~/trpc/react";
+import { useRouter } from "next/navigation";
 
 interface CreateProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps) {
+export default function CreateProjectModal({
+  isOpen,
+  onClose,
+}: CreateProjectModalProps) {
   const utils = api.useUtils();
+  const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
   const createProject = api.project.create.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      console.log("Mutation Success - Response Data:", data);
+
       await utils.project.invalidate();
       setName("");
       setDescription("");
-      onClose(); // Close modal after success
+      onClose();
+
+      if (data?.projectId) {
+        console.log("Project ID:", data.projectId);
+        router.push(`/projectdetails/${data.projectId}`);
+      } else {
+        console.error("Project ID missing in response:", data);
+      }
+    },
+    onError: (error) => {
+      console.error("Mutation Error:", error);
     },
   });
 
@@ -59,6 +76,7 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
+                  console.log("Submitting project:", { name, description });
                   createProject.mutate({ name, description });
                 }}
                 className="mt-4 flex flex-col gap-4"

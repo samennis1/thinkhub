@@ -12,11 +12,26 @@ export const projectRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.insert(projects).values({
-        name: input.name,
-        description: input.description ?? "",
-        createdBy: ctx.session.user.id,
+      const [newProject] = await ctx.db
+        .insert(projects)
+        .values({
+          name: input.name,
+          description: input.description ?? "",
+          createdBy: ctx.session.user.id,
+        })
+        .$returningId();
+
+      if (!newProject?.id) {
+        throw new Error("Failed to create project.");
+      }
+
+      await ctx.db.insert(projectMembers).values({
+        projectId: newProject.id,
+        userId: ctx.session.user.id,
+        role: "Manager",
       });
+
+      return { projectId: newProject.id };
     }),
 
   getProjects: protectedProcedure.query(async ({ ctx }) => {
@@ -35,13 +50,25 @@ export const projectRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const manager = await ctx.db.query.projectMembers.findFirst({
+        where: (fields) =>
+          eq(fields.projectId, input.projectId) &&
+          eq(fields.userId, ctx.session.user.id) &&
+          eq(fields.role, "Manager"),
+      });
+
+      if (!manager) {
+        throw new Error("Only Managers can add members to this project.");
+      }
+
       await ctx.db.insert(projectMembers).values({
         projectId: input.projectId,
         userId: input.userId,
         role: input.role,
       });
-    }),
 
+      return { success: true };
+    }),
   getProjectDetails: protectedProcedure
     .input(z.object({ projectId: z.number() }))
     .query(async ({ ctx, input }) => {
