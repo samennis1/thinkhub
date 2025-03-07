@@ -1,14 +1,7 @@
-//make roots for project
 import { z } from "zod";
-
-import {
-  createTRPCRouter,
-  protectedProcedure,
-  publicProcedure,
-} from "~/server/api/trpc";
-import { projects, projectMembers } from "~/server/db/schema";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { projects, projectMembers, documents } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
-
 
 export const projectRouter = createTRPCRouter({
   create: protectedProcedure
@@ -26,6 +19,13 @@ export const projectRouter = createTRPCRouter({
       });
     }),
 
+  getProjects: protectedProcedure.query(async ({ ctx }) => {
+    return ctx.db
+      .select()
+      .from(projects)
+      .where(eq(projects.createdBy, ctx.session.user.id));
+  }),
+
   addMember: protectedProcedure
     .input(
       z.object({
@@ -41,7 +41,8 @@ export const projectRouter = createTRPCRouter({
         role: input.role,
       });
     }),
-    getProjectDetails: protectedProcedure
+
+  getProjectDetails: protectedProcedure
     .input(z.object({ projectId: z.number() }))
     .query(async ({ ctx, input }) => {
       const project = await ctx.db.query.projects.findFirst({
@@ -49,5 +50,31 @@ export const projectRouter = createTRPCRouter({
       });
 
       return project ?? null;
+    }),
+
+  assignDocument: protectedProcedure
+    .input(
+      z.object({
+        title: z.string(),
+        fileUrl: z.string(),
+        projectId: z.number(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.insert(documents).values({
+        title: input.title,
+        fileUrl: input.fileUrl,
+        projectId: input.projectId,
+        uploadedBy: ctx.session.user.id,
+      });
+    }),
+
+  getDocuments: protectedProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db
+        .select()
+        .from(documents)
+        .where(eq(documents.projectId, input.projectId));
     }),
 });
