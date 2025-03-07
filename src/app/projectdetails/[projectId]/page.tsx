@@ -28,6 +28,7 @@ interface Milestone {
 const ProjectDetailsPage: React.FC = () => {
   const params = useParams();
   const projectId = params.projectId ? Number(params.projectId) : null;
+
   const {
     data: project,
     isLoading,
@@ -38,12 +39,12 @@ const ProjectDetailsPage: React.FC = () => {
   );
 
   const { data: milestones, refetch: refetchMilestones } =
-    api.details.getMilestones.useQuery(
+    api.milestone.getMilestones.useQuery(
       { projectId: projectId! },
       { enabled: !!projectId },
     );
 
-  const updateTaskMutation = api.details.updateTask.useMutation({
+  const updateTaskMutation = api.task.updateTask.useMutation({
     onSuccess: () => {
       refetchMilestones();
     },
@@ -53,7 +54,7 @@ const ProjectDetailsPage: React.FC = () => {
     },
   });
 
-  const reorderTasksMutation = api.details.reorderTasks.useMutation({
+  const reorderTasksMutation = api.task.reorderTasks.useMutation({
     onSuccess: () => {
       refetchMilestones();
     },
@@ -63,14 +64,14 @@ const ProjectDetailsPage: React.FC = () => {
     },
   });
 
-  const addMilestoneMutation = api.details.createMilestone.useMutation({
+  const addMilestoneMutation = api.milestone.createMilestone.useMutation({
     onSuccess: () => {
       refetchMilestones();
       setShowMilestoneModal(false);
     },
   });
 
-  const addTaskMutation = api.details.createTask.useMutation({
+  const addTaskMutation = api.task.createTask.useMutation({
     onSuccess: () => {
       refetchMilestones();
       setShowTaskModal(false);
