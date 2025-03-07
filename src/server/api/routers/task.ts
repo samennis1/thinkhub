@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { tasks, projectMembers } from "~/server/db/schema";
 import { eq, and } from "drizzle-orm";
+import { get } from "http";
 
 export const taskRouter = createTRPCRouter({
   editTask: protectedProcedure
@@ -125,5 +126,13 @@ export const taskRouter = createTRPCRouter({
           tasks: milestone.tasks,
         })),
       };
+    }),
+
+  getTask: protectedProcedure
+    .input(z.object({ taskId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db.query.tasks.findFirst({
+        where: (fields) => eq(fields.id, input.taskId),
+      });
     }),
 });
