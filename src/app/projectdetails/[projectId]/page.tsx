@@ -2,7 +2,12 @@
 import React, { useState } from "react";
 import { useParams } from "next/navigation";
 import { api } from "~/trpc/react";
-import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+} from "react-beautiful-dnd";
 
 interface Task {
   id: number;
@@ -23,18 +28,22 @@ interface Milestone {
 const ProjectDetailsPage: React.FC = () => {
   const params = useParams();
   const projectId = params.projectId ? Number(params.projectId) : null;
-
-  const { data: project, isLoading, error } = api.project.getProjectDetails.useQuery(
+  const {
+    data: project,
+    isLoading,
+    error,
+  } = api.project.getProjectDetails.useQuery(
     { projectId: projectId! },
-    { enabled: !!projectId }
+    { enabled: !!projectId },
   );
 
-  const { data: milestones, refetch: refetchMilestones } = api.milestone.getMilestones.useQuery(
-    { projectId: projectId! },
-    { enabled: !!projectId }
-  );
+  const { data: milestones, refetch: refetchMilestones } =
+    api.details.getMilestones.useQuery(
+      { projectId: projectId! },
+      { enabled: !!projectId },
+    );
 
-  const updateTaskMutation = api.task.updateTask.useMutation({
+  const updateTaskMutation = api.details.updateTask.useMutation({
     onSuccess: () => {
       refetchMilestones();
     },
@@ -44,7 +53,7 @@ const ProjectDetailsPage: React.FC = () => {
     },
   });
 
-  const reorderTasksMutation = api.task.reorderTasks.useMutation({
+  const reorderTasksMutation = api.details.reorderTasks.useMutation({
     onSuccess: () => {
       refetchMilestones();
     },
@@ -54,14 +63,14 @@ const ProjectDetailsPage: React.FC = () => {
     },
   });
 
-  const addMilestoneMutation = api.milestone.createMilestone.useMutation({
+  const addMilestoneMutation = api.details.createMilestone.useMutation({
     onSuccess: () => {
       refetchMilestones();
       setShowMilestoneModal(false);
     },
   });
 
-  const addTaskMutation = api.task.createTask.useMutation({
+  const addTaskMutation = api.details.createTask.useMutation({
     onSuccess: () => {
       refetchMilestones();
       setShowTaskModal(false);
@@ -72,7 +81,9 @@ const ProjectDetailsPage: React.FC = () => {
   const [newMilestoneDescription, setNewMilestoneDescription] = useState("");
   const [newMilestoneDueDate, setNewMilestoneDueDate] = useState("");
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [selectedMilestoneId, setSelectedMilestoneId] = useState<number | null>(null);
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState<number | null>(
+    null,
+  );
   const [showMilestoneModal, setShowMilestoneModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
 
@@ -107,7 +118,9 @@ const ProjectDetailsPage: React.FC = () => {
     const { source, destination, draggableId } = result;
 
     if (source.droppableId === destination.droppableId) {
-      const milestone = milestones?.find(m => m.id.toString() === source.droppableId) as Milestone;
+      const milestone = milestones?.find(
+        (m) => m.id.toString() === source.droppableId,
+      ) as Milestone;
       if (milestone) {
         const tasks = Array.from(milestone.tasks);
         const [movedTask] = tasks.splice(source.index, 1);
@@ -118,7 +131,7 @@ const ProjectDetailsPage: React.FC = () => {
         milestone.tasks = tasks;
         reorderTasksMutation.mutate({
           milestoneId: milestone.id,
-          tasks: tasks.map(task => task.id),
+          tasks: tasks.map((task) => task.id),
         });
       }
     } else {
@@ -136,7 +149,10 @@ const ProjectDetailsPage: React.FC = () => {
     <div>
       <h1>{project?.name}</h1>
       <p>{project?.description}</p>
-      <p>Created at: {project ? new Date(project.createdAt).toLocaleString() : ""}</p>
+      <p>
+        Created at:{" "}
+        {project ? new Date(project.createdAt).toLocaleString() : ""}
+      </p>
 
       <h2>Milestones</h2>
       <button onClick={() => setShowMilestoneModal(true)}>Add Milestone</button>
@@ -150,32 +166,46 @@ const ProjectDetailsPage: React.FC = () => {
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                   style={{
-                    backgroundColor: snapshot.isDraggingOver ? 'lightblue' : 'lightgrey',
+                    backgroundColor: snapshot.isDraggingOver
+                      ? "lightblue"
+                      : "lightgrey",
                     padding: 4,
                     width: 250,
                     minHeight: 500,
                   }}
                 >
                   <h3>Milestone {index + 1}</h3>
-                  <p><strong>Title:</strong> {milestone.title}</p>
-                  <p><strong>Description:</strong> {milestone.description}</p>
-                  <p>Due Date: {new Date(milestone.dueDate).toLocaleDateString()}</p>
+                  <p>
+                    <strong>Title:</strong> {milestone.title}
+                  </p>
+                  <p>
+                    <strong>Description:</strong> {milestone.description}
+                  </p>
+                  <p>
+                    Due Date: {new Date(milestone.dueDate).toLocaleDateString()}
+                  </p>
                   <h4>Tasks</h4>
                   <ul>
                     {milestone.tasks.map((task: Task, taskIndex: number) => (
-                      <Draggable key={task.id} draggableId={task.id.toString()} index={taskIndex}>
+                      <Draggable
+                        key={task.id}
+                        draggableId={task.id.toString()}
+                        index={taskIndex}
+                      >
                         {(provided, snapshot) => (
                           <li
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
                             style={{
-                              userSelect: 'none',
+                              userSelect: "none",
                               padding: 16,
-                              margin: '0 0 8px 0',
-                              minHeight: '50px',
-                              backgroundColor: snapshot.isDragging ? '#263B4A' : '#456C86',
-                              color: 'white',
+                              margin: "0 0 8px 0",
+                              minHeight: "50px",
+                              backgroundColor: snapshot.isDragging
+                                ? "#263B4A"
+                                : "#456C86",
+                              color: "white",
                               ...provided.draggableProps.style,
                             }}
                           >
@@ -206,7 +236,10 @@ const ProjectDetailsPage: React.FC = () => {
       {showMilestoneModal && (
         <div className="modal">
           <div className="modal-content">
-            <span className="close" onClick={() => setShowMilestoneModal(false)}>
+            <span
+              className="close"
+              onClick={() => setShowMilestoneModal(false)}
+            >
               &times;
             </span>
             <h2>Add Milestone</h2>
