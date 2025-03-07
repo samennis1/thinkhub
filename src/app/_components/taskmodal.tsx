@@ -17,52 +17,61 @@ enum TaskPriority {
   Lowest = "5",
 }
 
-interface Task {
-  id: number;
-  title: string;
-  description: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  documentId: number;
-  documentLink: string;
-  policyHeader: string;
-  policyContent: string;
-  recommendedContent: string;
-}
-
 interface TaskModalProps {
-  task: Task;
+  taskId: number;
   onClose: () => void;
 }
 
-export function TaskModal({ task, onClose }: TaskModalProps) {
-  const [title, setTitle] = useState(task?.title || "");
-  const [description, setDescription] = useState(task?.description || "");
-  const [status, setStatus] = useState(task?.status || TaskStatus.ToDo);
-  const [priority, setPriority] = useState(
-    task?.priority || TaskPriority.Medium,
-  );
-  const [policyHeader, setPolicyHeader] = useState(task?.policyHeader || "");
-  const [policyContent, setPolicyContent] = useState(task?.policyContent || "");
-  const [recommendedContent, setRecommendedContent] = useState(
-    task?.recommendedContent || "",
-  );
-  const [documentId, setDocumentId] = useState(task?.documentId || 0);
+export function TaskModal({ taskId, onClose }: TaskModalProps) {
+  const [task] = api.tasks.getTask.useSuspenseQuery({
+    taskId,
+  });
+
+  const [assignedDocument, setAssignedDocument] = useState<any>(null);
+
+  useEffect(() => {
+    if (task?.documentId) {
+      const fetchedDocument = api.document.getDocument.useSuspenseQuery({
+        documentId: task?.documentId || 0,
+      });
+      setAssignedDocument(fetchedDocument);
+    } else {
+      setAssignedDocument(null);
+    }
+  }, [task]);
+
+  const [documents] = api.project.getDocuments.useSuspenseQuery({
+    projectId: task?.projectId || 0,
+  });
+
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [status, setStatus] = useState<TaskStatus>(TaskStatus.ToDo);
+  const [priority, setPriority] = useState<TaskPriority>(TaskPriority.Medium);
+  const [policyHeader, setPolicyHeader] = useState("");
+  const [policyContent, setPolicyContent] = useState("");
+  const [recommendedContent, setRecommendedContent] = useState("");
+  const [documentId, setDocumentId] = useState<number | null>(null);
   const [documentTitle, setDocumentTitle] = useState("");
   const [documentLink, setDocumentLink] = useState("");
 
-  const [assignedDocument] = api.document.getDocument.useSuspenseQuery({
-    id: task.documentId,
-  });
-
-  const [documents] = api.project.getDocuments.useSuspenseQuery({
-    projectId: task.id,
-  });
+  useEffect(() => {
+    if (task) {
+      setTitle(task.title || "");
+      setDescription(task.description || "");
+      setStatus((task.status as TaskStatus) || TaskStatus.ToDo);
+      setPriority((task.priority as TaskPriority) || TaskPriority.Medium);
+      setPolicyHeader(task.policyHeader || "");
+      setPolicyContent(task.policyContent || "");
+      setRecommendedContent(task.recommendedContent || "");
+      setDocumentId(task.documentId || null);
+    }
+  }, [task]);
 
   useEffect(() => {
     if (assignedDocument) {
-      setDocumentTitle(assignedDocument[0]?.title || "");
-      setDocumentLink(assignedDocument[0]?.fileUrl || "");
+      setDocumentTitle(assignedDocument?.[0]?.title || "");
+      setDocumentLink(assignedDocument?.[0]?.fileUrl || "");
     } else {
       setDocumentTitle("");
       setDocumentLink("");
@@ -77,7 +86,7 @@ export function TaskModal({ task, onClose }: TaskModalProps) {
     },
   });
 
-  const deleteTask = api.tasks.deleteTask?.useMutation({
+  const deleteTask = api.tasks.deleteTask.useMutation({
     onSuccess: async () => {
       await utils.tasks.invalidate();
       onClose();
@@ -188,26 +197,32 @@ export function TaskModal({ task, onClose }: TaskModalProps) {
         {}
         <div className="mt-4 flex justify-end gap-2">
           <button
-            onClick={() =>
-              editTask.mutate({
-                id: task.id,
-                title,
-                description,
-                status,
-                priority,
-                policyHeader,
-                policyContent,
-                recommendedContent,
-                documentIds: documentId,
-              })
-            }
+            onClick={() => {
+              if (task) {
+                editTask.mutate({
+                  id: task.id,
+                  title,
+                  description,
+                  status,
+                  priority,
+                  policyHeader,
+                  policyContent,
+                  recommendedContent,
+                  documentIds: documentId ?? 0,
+                });
+              }
+            }}
             disabled={editTask.isPending}
             className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
           >
             {editTask.isPending ? "Saving..." : "Save"}
           </button>
           <button
-            onClick={() => deleteTask.mutate({ id: task.id })}
+            onClick={() => {
+              if (task) {
+                deleteTask.mutate({ id: task.id });
+              }
+            }}
             className="rounded bg-red-500 px-4 py-2 text-white hover:bg-red-600"
           >
             Delete
