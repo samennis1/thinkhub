@@ -196,3 +196,68 @@ export const documents = createTable("document", {
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),
 });
+
+export const activities = createTable("activity", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: varchar("user_id", { length: 255 })
+    .notNull()
+    .references(() => users.id),
+  projectId: int("project_id")
+    .notNull()
+    .references(() => projects.id),
+  actionType: enumType("action_type", [
+    "create_project",
+    "update_project",
+    "create_milestone",
+    "complete_milestone",
+    "create_task",
+    "update_task",
+    "complete_task",
+    "add_document",
+    "add_member",
+    "remove_member",
+    "comment"
+  ]).notNull(),
+  entityId: int("entity_id"),
+  entityType: enumType("entity_type", ["project", "milestone", "task", "document", "member"]).notNull(),
+  details: text("details"),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+});
+
+export const activitiesRelations = relations(activities, ({ one }) => ({
+  user: one(users, { fields: [activities.userId], references: [users.id] }),
+  project: one(projects, { fields: [activities.projectId], references: [projects.id] }),
+}));
+
+export const projectsRelations = relations(projects, ({ many, one }) => ({
+  members: many(projectMembers),
+  milestones: many(milestones),
+  documents: many(documents),
+  activities: many(activities),
+  creator: one(users, { fields: [projects.createdBy], references: [users.id] }),
+}));
+
+export const milestonesRelations = relations(milestones, ({ many, one }) => ({
+  project: one(projects, { fields: [milestones.projectId], references: [projects.id] }),
+  tasks: many(tasks),
+}));
+
+export const tasksRelations = relations(tasks, ({ one }) => ({
+  project: one(projects, { fields: [tasks.projectId], references: [projects.id] }),
+  milestone: one(milestones, { fields: [tasks.milestoneId], references: [milestones.id] }),
+  creator: one(users, { fields: [tasks.createdBy], references: [users.id] }),
+  assignee: one(users, { fields: [tasks.assignedTo], references: [users.id] }),
+  document: one(documents, { fields: [tasks.documentId], references: [documents.id] }),
+}));
+
+export const documentsRelations = relations(documents, ({ one }) => ({
+  project: one(projects, { fields: [documents.projectId], references: [projects.id] }),
+  uploader: one(users, { fields: [documents.uploadedBy], references: [users.id] }),
+}));
+
+export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
+  project: one(projects, { fields: [projectMembers.projectId], references: [projects.id] }),
+  user: one(users, { fields: [projectMembers.userId], references: [users.id] }),
+}));

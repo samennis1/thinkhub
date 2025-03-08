@@ -1,102 +1,99 @@
 "use client";
 
-import { useState, Fragment } from "react";
-import { Dialog, Transition } from "@headlessui/react";
+import { useState } from "react";
 import { api } from "~/trpc/react";
 
 interface CreateProjectModalProps {
-  isOpen: boolean;
   onClose: () => void;
 }
 
-export default function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps) {
-  const utils = api.useUtils();
+export default function CreateProjectModal({ onClose }: CreateProjectModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
+  const utils = api.useContext();
   const createProject = api.project.create.useMutation({
     onSuccess: async () => {
-      await utils.project.invalidate();
-      setName("");
-      setDescription("");
-      onClose(); // Close modal after success
+      void utils.project.getProjects.invalidate();
+      onClose();
     },
   });
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createProject.mutate({
+      name,
+      description,
+    });
+  };
+
   return (
-    <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
-        <Transition.Child
-          as={Fragment}
-          enter="transition-opacity duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="transition-opacity duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
         >
-          <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-        </Transition.Child>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
 
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Transition.Child
-            as={Fragment}
-            enter="transition-transform duration-300"
-            enterFrom="scale-95 opacity-0"
-            enterTo="scale-100 opacity-100"
-            leave="transition-transform duration-200"
-            leaveFrom="scale-100 opacity-100"
-            leaveTo="scale-95 opacity-0"
-          >
-            <Dialog.Panel className="w-full max-w-md rounded-lg bg-gray-800 p-6 shadow-lg">
-              <Dialog.Title className="text-lg font-semibold text-white">
-                Create a New Project
-              </Dialog.Title>
-              <Dialog.Description className="text-gray-400">
-                Enter the project name and description below.
-              </Dialog.Description>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Project</h2>
 
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  createProject.mutate({ name, description });
-                }}
-                className="mt-4 flex flex-col gap-4"
-              >
-                <input
-                  type="text"
-                  placeholder="Project Name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-lg border px-4 py-2 text-black"
-                  required
-                />
-                <textarea
-                  placeholder="Project Description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full rounded-lg border px-4 py-2 text-black"
-                  required
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg bg-blue-600 px-6 py-2 font-semibold text-white transition hover:bg-blue-700"
-                  disabled={createProject.isPending}
-                >
-                  {createProject.isPending ? "Creating..." : "Create Project"}
-                </button>
-              </form>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              Project Name
+            </label>
+            <input
+              type="text"
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Enter project name"
+              required
+              disabled={createProject.isPending}
+            />
+          </div>
 
-              <button
-                onClick={onClose}
-                className="mt-3 w-full rounded-lg bg-gray-600 px-4 py-2 text-white hover:bg-gray-700"
-              >
-                Close
-              </button>
-            </Dialog.Panel>
-          </Transition.Child>
-        </div>
-      </Dialog>
-    </Transition>
+          <div>
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+              Description
+            </label>
+            <textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Enter project description"
+              rows={4}
+              disabled={createProject.isPending}
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              disabled={createProject.isPending}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={createProject.isPending}
+              className={`px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors ${
+                createProject.isPending ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            >
+              {createProject.isPending ? "Creating..." : "Create Project"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
