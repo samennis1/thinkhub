@@ -357,6 +357,7 @@ const ProjectDetailsPage: React.FC = () => {
                         key={milestone.id} 
                         droppableId={milestone.id.toString()} 
                         isDropDisabled={false}
+                        isCombineEnabled={false}
                       >
                         {(
                           provided: DroppableProvided,
@@ -392,6 +393,7 @@ const ProjectDetailsPage: React.FC = () => {
                                     key={task.id}
                                     draggableId={task.id.toString()}
                                     index={taskIndex}
+                                    isDragDisabled={false}
                                   >
                                     {(
                                       provided: DraggableProvided,
