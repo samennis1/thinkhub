@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, Fragment } from "react";
+import { useRouter } from "next/navigation"; 
 import { Dialog, Transition } from "@headlessui/react";
 import { api } from "~/trpc/react";
 
@@ -11,16 +12,33 @@ interface CreateProjectModalProps {
 
 export default function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps) {
   const utils = api.useUtils();
+  const router = useRouter(); 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
   const createProject = api.project.create.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      console.log("🚨 Data received in onSuccess:", data);
+  
       await utils.project.invalidate();
       setName("");
       setDescription("");
-      onClose(); // Close modal after success
-    },
+  
+      // Only way I could get it to not return an array idk why
+      const projectId = Array.isArray(data) && data[0]?.id
+          ? data[0].id
+          : data;
+  
+      
+  
+      if (typeof projectId === 'number') {
+          router.push(`/projectdetails/${projectId}`);
+      } else {
+          console.error("❌ Unexpected data format:", data);
+      }
+  
+      onClose();
+  },
   });
 
   return (

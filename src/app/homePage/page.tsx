@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation"; // ✅ Import useRouter
 import { api } from "~/trpc/react";
 import { useSession } from "next-auth/react";
 import CreateProjectModal from "../CreateProjectModal/CreateProjectModal";
 
 export default function ProjectsPage() {
   const { data: session, status } = useSession();
+  const router = useRouter(); // ✅ Initialize router
   const [userID, setUserID] = useState<string | null>(null);
   const [isModalOpen, setModalOpen] = useState(false); // Modal control
 
@@ -26,6 +28,11 @@ export default function ProjectsPage() {
   if (isLoading) return <p className="text-white">Loading projects...</p>;
   if (error) return <p className="text-red-500">Error: {error.message}</p>;
 
+  // ✅ Function to handle project click
+  const handleProjectClick = (projectId: number) => {
+    router.push(`/projectdetails/${projectId}`);
+  };
+
   return (
     <div className="mx-auto mt-10 w-full max-w-md rounded-lg bg-gray-800 p-6 shadow-md">
       <h1 className="mb-4 text-xl font-semibold text-white">Your Projects</h1>
@@ -42,7 +49,11 @@ export default function ProjectsPage() {
       {projects && projects.length > 0 ? (
         <ul className="space-y-4">
           {projects.map((project: { id: number; name: string; description: string | null }) => (
-            <li key={project.id} className="rounded-lg bg-gray-700 p-4">
+            <li
+              key={project.id}
+              className="rounded-lg bg-gray-700 p-4 cursor-pointer hover:bg-gray-600 transition"
+              onClick={() => handleProjectClick(project.id)} // ✅ Clickable project
+            >
               <h2 className="text-lg font-semibold text-white">{project.name}</h2>
               <p className="text-gray-300">{project.description || "No description provided."}</p>
             </li>

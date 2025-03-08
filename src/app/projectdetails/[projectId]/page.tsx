@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { TaskModal } from "~/app/_components/taskmodal";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
@@ -29,6 +29,7 @@ interface Document {
 
 const ProjectDetailsPage: React.FC = () => {
   const params = useParams();
+  const router = useRouter();
   const projectId = params.projectId ? Number(params.projectId) : null;
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
@@ -41,6 +42,16 @@ const ProjectDetailsPage: React.FC = () => {
       console.log("Selected Task ID:", selectedTaskId);
     }
   }, [selectedTaskId]);
+
+  useEffect(() => {
+    if (!projectId) {
+      router.push("/404"); // Redirect to 404 if projectId is invalid
+    }
+  }, [projectId, router]);
+
+  const handleBackToProjects = () => {
+    router.push("/projects");
+  };
 
   const { data: project, isLoading, error } = api.project.getProjectDetails.useQuery(
     { projectId: projectId! },
