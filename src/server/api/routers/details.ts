@@ -5,7 +5,26 @@ import {
   publicProcedure,
 } from "~/server/api/trpc";
 import { milestones, tasks } from "~/server/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+
+interface Task {
+  id: number;
+  title: string;
+  description: string | null;
+  createdBy: string;
+  order: number;
+  milestoneId: number;
+  projectId: number;
+}
+
+interface Milestone {
+  id: number;
+  title: string;
+  description: string | null;
+  dueDate: Date;
+  projectId: number;
+  tasks: Task[];
+}
 
 export const detailsRouter = createTRPCRouter({
   getMilestones: publicProcedure
@@ -21,14 +40,14 @@ export const detailsRouter = createTRPCRouter({
         .where(eq(milestones.projectId, input.projectId))
         .execute();
 
-      const milestoneMap = new Map<number, any>();
+      const milestoneMap = new Map<number, Milestone>();
 
       milestonesWithTasks.forEach(({ milestone, task }) => {
         if (!milestoneMap.has(milestone.id)) {
           milestoneMap.set(milestone.id, { ...milestone, tasks: [] });
         }
         if (task) {
-          milestoneMap.get(milestone.id).tasks.push(task);
+          milestoneMap.get(milestone.id)!.tasks.push(task as Task);
         }
       });
 
@@ -53,31 +72,30 @@ export const detailsRouter = createTRPCRouter({
       });
     }),
 
-        createTask: protectedProcedure
-        .input(
-            z.object({
-                projectId: z.number(),
-                milestoneId: z.number(),
-                title: z.string().optional(),
-                createdBy: z.string(),
-                order: z.number(),
-            })
-        )
-        .mutation(async ({ input, ctx }) => {
-            const result = await ctx.db
-                .insert(tasks)
-                .values({
-                    projectId: input.projectId,
-                    milestoneId: input.milestoneId,
-                    title: input.title ?? "",
-                    createdBy: input.createdBy,
-                    order: input.order,
-                })
-                .$returningId();
-    
-            return result[0];
-        }),
-    
+  createTask: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number(),
+        milestoneId: z.number(),
+        title: z.string().optional(),
+        createdBy: z.string(),
+        order: z.number(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const result = await ctx.db
+        .insert(tasks)
+        .values({
+          projectId: input.projectId,
+          milestoneId: input.milestoneId,
+          title: input.title ?? "",
+          createdBy: input.createdBy,
+          order: input.order,
+        })
+        .$returningId();
+
+      return result[0];
+    }),
 
   getTasks: publicProcedure
     .input(z.object({ milestoneId: z.number() }))
