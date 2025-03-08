@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { projectMembers, users } from "~/server/db/schema";
 import { eq, and, like } from "drizzle-orm";
+import { logActivity } from "../utils/activity-logger";
 
 export const memberRouter = createTRPCRouter({
   addMember: protectedProcedure
@@ -13,32 +14,71 @@ export const memberRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const user = await ctx.db.query.users.findFirst({
-        where: eq(users.email, input.email),
-      });
+      try {
+        const user = await ctx.db.query.users.findFirst({
+          where: eq(users.email, input.email),
+        });
 
-      if (!user) {
-        throw new Error("User not found");
+        if (!user) {
+          throw new Error("User not found");
+        }
+
+        const existingMember = await ctx.db.query.projectMembers.findFirst({
+          where: and(
+            eq(projectMembers.projectId, input.projectId),
+            eq(projectMembers.userId, user.id),
+          ),
+        });
+
+        if (existingMember) {
+          throw new Error("User is already a member of this project");
+        }
+
+        const result = await ctx.db.insert(projectMembers).values({
+          projectId: input.projectId,
+          userId: user.id,
+          role: input.role,
+        });
+
+        const insertId = result[0] ? Number(result[0].insertId) : null;
+        
+        if (insertId) {
+          const newMember = await ctx.db
+            .select()
+            .from(projectMembers)
+            .where(
+              and(
+                eq(projectMembers.projectId, input.projectId),
+                eq(projectMembers.userId, user.id)
+              )
+            )
+            .limit(1);
+            
+          const newMemberId = newMember[0]?.id;
+          
+          if (newMemberId) {
+            await logActivity({
+              db: ctx.db,
+              userId: ctx.session.user.id,
+              projectId: input.projectId,
+              actionType: "add_member",
+              entityId: newMemberId,
+              entityType: "member",
+              details: { 
+                addedUserId: user.id, 
+                addedUserEmail: user.email,
+                addedUserName: user.name,
+                role: input.role 
+              }
+            });
+          }
+        }
+
+        return { success: true };
+      } catch (error) {
+        console.error("Failed to add member:", error);
+        throw error;
       }
-
-      const existingMember = await ctx.db.query.projectMembers.findFirst({
-        where: and(
-          eq(projectMembers.projectId, input.projectId),
-          eq(projectMembers.userId, user.id),
-        ),
-      });
-
-      if (existingMember) {
-        throw new Error("User is already a member of this project");
-      }
-
-      const result = await ctx.db.insert(projectMembers).values({
-        projectId: input.projectId,
-        userId: user.id,
-        role: input.role,
-      });
-
-      return { success: true, userId: user.id };
     }),
 
   removeMember: protectedProcedure

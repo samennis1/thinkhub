@@ -64,7 +64,6 @@ const ProjectDetailsPage: React.FC = () => {
   const [newDocumentTitle, setNewDocumentTitle] = useState("");
   const [newDocumentUrl, setNewDocumentUrl] = useState("");
 
-  // New state to manage active tab
   const [activeTab, setActiveTab] = useState("milestones");
 
   useEffect(() => {
@@ -222,7 +221,6 @@ const ProjectDetailsPage: React.FC = () => {
     }
   };
 
-  // Sidebar content reused in multiple tabs
   const sidebar = (
     <div className="bg-white rounded-lg shadow p-6 mb-6 md:mb-0">
       <h3 className="text-lg font-medium text-gray-900 mb-4">Project Info</h3>
@@ -258,7 +256,7 @@ const ProjectDetailsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Project Header */}
+      {}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-6">
@@ -285,7 +283,7 @@ const ProjectDetailsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Project Navigation */}
+            {}
             <div className="mt-6 border-t border-gray-200">
               <nav className="flex space-x-4 overflow-x-auto mt-4">
                 <button
@@ -334,7 +332,7 @@ const ProjectDetailsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Content Area */}
+      {}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === "overview" && (
           <div className="flex flex-col md:flex-row gap-8">
@@ -342,7 +340,7 @@ const ProjectDetailsPage: React.FC = () => {
             <div className="flex-1 bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Project Overview</h2>
               <p className="text-gray-700">{project.description}</p>
-              {/* Add additional overview details here */}
+              {}
             </div>
           </div>
         )}
@@ -355,7 +353,11 @@ const ProjectDetailsPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {milestones.length ? (
                     milestones.map((milestone: Milestone) => (
-                      <Droppable key={milestone.id} droppableId={milestone.id.toString()}>
+                      <Droppable 
+                        key={milestone.id} 
+                        droppableId={milestone.id.toString()} 
+                        isDropDisabled={false}
+                      >
                         {(
                           provided: DroppableProvided,
                           snapshot: DroppableStateSnapshot
@@ -496,7 +498,7 @@ const ProjectDetailsPage: React.FC = () => {
         )}
       </div>
 
-      {/* Milestone Modal */}
+      {}
       {showMilestoneModal && (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
@@ -589,7 +591,7 @@ const ProjectDetailsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Document Modal */}
+      {}
       {showDocumentModal && (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
@@ -667,7 +669,7 @@ const ProjectDetailsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Task Modal */}
+      {}
       {selectedTaskId && (
         <TaskModal taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} />
       )}

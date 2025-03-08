@@ -5,7 +5,6 @@ import { TRPCReactProvider } from "~/trpc/react";
 import Link from "next/link";
 import { SessionProvider } from "next-auth/react";
 
-// Load Inter font with all weights for a premium look
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -29,7 +28,7 @@ export default function RootLayout({
       <body className={`font-sans ${inter.variable} bg-gray-50 min-h-screen flex flex-col`}>
         <SessionProvider>
         <TRPCReactProvider>
-          {/* Navbar */}
+          {}
           <header className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-md">
             <div className="container mx-auto px-4 py-4">
               <div className="flex justify-between items-center">
@@ -54,11 +53,6 @@ export default function RootLayout({
                       </Link>
                     </li>
                     <li>
-                      <Link href="/projects" className="hover:text-blue-200 transition-colors">
-                        Projects
-                      </Link>
-                    </li>
-                    <li>
                       <Link href="/dashboard" className="hover:text-blue-200 transition-colors">
                         Dashboard
                       </Link>
@@ -77,12 +71,12 @@ export default function RootLayout({
             </div>
           </header>
 
-          {/* Main Content */}
+          {}
           <main className="flex-grow">
             {children}
           </main>
 
-          {/* Footer */}
+          {}
           <footer className="bg-gray-800 text-white py-8 mt-12">
             <div className="container mx-auto px-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -111,11 +105,6 @@ export default function RootLayout({
                     <li>
                       <Link href="/" className="text-gray-400 hover:text-white transition-colors">
                         Home
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/projects" className="text-gray-400 hover:text-white transition-colors">
-                        Projects
                       </Link>
                     </li>
                     <li>
