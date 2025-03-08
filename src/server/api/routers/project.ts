@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { projects, projectMembers, documents } from "~/server/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export const projectRouter = createTRPCRouter({
   create: protectedProcedure
@@ -76,5 +76,20 @@ export const projectRouter = createTRPCRouter({
         .select()
         .from(documents)
         .where(eq(documents.projectId, input.projectId));
+    }),
+
+  getById: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const project = await ctx.db.query.projects.findFirst({
+        where: (projects, { eq }) =>
+          eq(projects.id, parseInt(input.id)),
+      });
+
+      if (!project) {
+        throw new Error("Project not found");
+      }
+
+      return project;
     }),
 });
