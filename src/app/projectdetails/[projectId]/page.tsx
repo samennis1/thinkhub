@@ -3,7 +3,9 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { TaskModal } from "~/app/_components/taskmodal";
-import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
+import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
+import type { DropResult } from "react-beautiful-dnd"; // Use import type
+import { useSession } from "next-auth/react";
 
 interface Task {
   id: number;
@@ -13,13 +15,13 @@ interface Task {
   order: number;
 }
 
-interface Milestone {
-  id: number;
-  title: string;
-  description: string | null;
-  dueDate: Date;
-  tasks: Task[];
-}
+// interface Milestone {
+//   id: number;
+//   title: string;
+//   description: string | null;
+//   dueDate: Date;
+//   tasks: Task[];
+// }
 
 interface Document {
   id: number;
@@ -28,6 +30,8 @@ interface Document {
 }
 
 const ProjectDetailsPage: React.FC = () => {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const params = useParams();
   const router = useRouter();
   const projectId = params.projectId ? Number(params.projectId) : null;
@@ -70,7 +74,7 @@ const ProjectDetailsPage: React.FC = () => {
 
   const updateTaskMutation = api.details.updateTask.useMutation({
     onSuccess: () => {
-      refetchMilestones();
+      void refetchMilestones();
     },
     onError: (error) => {
       console.error("Error updating task:", error);
@@ -80,7 +84,7 @@ const ProjectDetailsPage: React.FC = () => {
 
   const reorderTasksMutation = api.details.reorderTasks.useMutation({
     onSuccess: () => {
-      refetchMilestones();
+      void refetchMilestones();
     },
     onError: (error) => {
       console.error("Error reordering tasks:", error);
@@ -90,14 +94,14 @@ const ProjectDetailsPage: React.FC = () => {
 
   const addMilestoneMutation = api.details.createMilestone.useMutation({
     onSuccess: () => {
-      refetchMilestones();
+      void refetchMilestones();
       setShowMilestoneModal(false);
     },
   });
 
   const addTaskMutation = api.details.createTask.useMutation({
     onSuccess: (data) => {
-      refetchMilestones();
+      void refetchMilestones();
       if (data) {
         setSelectedTaskId(data.id);
       }
@@ -106,7 +110,7 @@ const ProjectDetailsPage: React.FC = () => {
 
   const addDocumentMutation = api.project.assignDocument.useMutation({
     onSuccess: () => {
-      refetchDocuments();
+      void refetchDocuments();
       setShowDocumentModal(false);
     },
   });
@@ -114,13 +118,39 @@ const ProjectDetailsPage: React.FC = () => {
   const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
   const [newMilestoneDescription, setNewMilestoneDescription] = useState("");
   const [newMilestoneDueDate, setNewMilestoneDueDate] = useState("");
-  // const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [selectedMilestoneId, setSelectedMilestoneId] = useState<number | null>(null);
   const [showMilestoneModal, setShowMilestoneModal] = useState(false);
+
+  const [isMember, setIsMember] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (status === "authenticated" && project && session) {
+      console.log("Project Members:", project.members);
+      const memberStatus = project.members.some(member => member.userId === session.user.id);
+      console.log("Is current user a member:", memberStatus);
+      setIsMember(memberStatus);
+    }
+  }, [status, project, session]);
 
   if (isLoading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
   if (error) return <div className="flex justify-center items-center h-screen">Error: {error.message}</div>;
   if (!project) return <div className="flex justify-center items-center h-screen">Project not found</div>;
+
+  if (isMember === false) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-4">You are not a member of this project</h1>
+          <p className="text-lg mb-4">Please contact {project.creatorEmail} to be added to the project.</p>
+          <button
+            onClick={() => router.push('/homePage')}
+            className="bg-blue-500 text-white py-2 px-4 rounded mt-4"
+          >
+            Go to Home Page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleAddMilestone = () => {
     addMilestoneMutation.mutate({
@@ -138,7 +168,7 @@ const ProjectDetailsPage: React.FC = () => {
           projectId: projectId!,
           milestoneId,
           title: "",
-          createdBy: project!.createdBy,
+          createdBy: project.createdBy,
           order: tasksCount,
         },
         {
@@ -146,7 +176,7 @@ const ProjectDetailsPage: React.FC = () => {
             if (data?.id) {
               setSelectedTaskId(data.id);
             }
-            refetchMilestones();
+            void refetchMilestones();
           },
         }
       );
@@ -168,7 +198,7 @@ const ProjectDetailsPage: React.FC = () => {
     const { source, destination, draggableId } = result;
 
     if (source.droppableId === destination.droppableId) {
-      const milestone = milestones?.find(m => m.id.toString() === source.droppableId) as Milestone;
+      const milestone = milestones?.find(m => m.id.toString() === source.droppableId);
       if (milestone) {
         const tasks = Array.from(milestone.tasks);
         const [movedTask] = tasks.splice(source.index, 1);
@@ -195,15 +225,26 @@ const ProjectDetailsPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold mb-4">{project?.name}</h1>
-          <p className="text-lg mb-4">{project?.description}</p>
-          <p className="text-sm text-gray-500 mb-8">Created at: {project ? new Date(project.createdAt).toLocaleString() : ""}</p>
+      <div className="flex justify-between mb-8">
+        <div className="w-1/4">
+          <h2 className="text-xl font-semibold mb-4">Members</h2>
+          <ul>
+            {project.members.map((member) => (
+              <li key={member.userId} className="mb-2">
+                {member.email} - {member.role}
+              </li>
+            ))}
+          </ul>
         </div>
-        <div className="w-1/3">
-          <div className="flex items-center justify-end mb-4">
-            <h2 className="text-xl font-semibold mr-2">Documents</h2>
+        <div className="w-1/2 text-center">
+          <h1 className="text-3xl font-bold mb-2">{project?.name}</h1>
+          <p className="text-lg mb-2">{project?.description}</p>
+          <p className="text-sm text-gray-500 mb-2">Created at: {project ? new Date(project.createdAt).toLocaleString() : ""}</p>
+          <p className="text-sm text-gray-500">Creator Email: {project.creatorEmail}</p>
+        </div>
+        <div className="w-1/4 text-right">
+          <div className="flex justify-end items-center mb-4">
+            <h2 className="text-xl font-semibold mr-2">Documents</h2> {/* Added mr-2 for margin */}
             <button
               onClick={() => setShowDocumentModal(true)}
               className="rounded-full w-8 h-8 flex items-center justify-center border-2 border-black text-black"
@@ -214,27 +255,22 @@ const ProjectDetailsPage: React.FC = () => {
             </button>
           </div>
           {showDocuments && (
-            <>
-              <ul className="mb-4 text-right">
-                {documents?.map((doc: Document) => (
-                  <li key={doc.id} className="mb-2">
-                    <a href={doc.fileUrl ?? '#'} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-                      {doc.title}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </>
+            <ul className="mb-4 text-right">
+              {documents?.map((doc: Document) => (
+                <li key={doc.id} className="mb-2">
+                  <a href={doc.fileUrl ?? '#'} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+                    {doc.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
           )}
-          <div className="flex justify-end">
-            <button onClick={() => setShowDocuments(!showDocuments)} className="btn btn-secondary">
-              {showDocuments ? "Hide Documents" : "Show Documents"}
-            </button>
-          </div>
+          <button onClick={() => setShowDocuments(!showDocuments)} className="btn btn-secondary">
+            {showDocuments ? "Hide Documents" : "Show Documents"}
+          </button>
         </div>
       </div>
-
-      <div className="flex flex-col items-center mb-4">
+      <div className="w-full flex flex-col items-center">
         <div className="flex items-center mb-4">
           <h2 className="text-2xl font-semibold mr-2">Milestones</h2>
           <button
@@ -246,60 +282,58 @@ const ProjectDetailsPage: React.FC = () => {
             </svg>
           </button>
         </div>
-      </div>
-
-      <div className="flex justify-center gap-4 mt-4">
-        <DragDropContext onDragEnd={handleDragEnd}>
-          {milestones?.length ? (
-            milestones.map((milestone, index) => (
-              <Droppable key={milestone.id} droppableId={milestone.id.toString()}>
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={`p-4 w-64 min-h-[500px] ${snapshot.isDraggingOver ? 'bg-blue-200' : 'bg-gray-200'} rounded-lg shadow-md`}
-                  >
-                    <h3 className="text-xl font-semibold mb-2">Milestone {index + 1}</h3>
-                    <p className="text-sm mb-1"><strong>Title:</strong> {milestone.title}</p>
-                    <p className="text-sm mb-1"><strong>Description:</strong> {milestone.description}</p>
-                    <p className="text-sm mb-4">Due Date: {new Date(milestone.dueDate).toLocaleDateString()}</p>
-                    <h4 className="text-lg font-semibold mb-2">Tasks</h4>
-                    <ul>
-                      {milestone.tasks.map((task: Task, taskIndex: number) => (
-                        <Draggable key={task.id} draggableId={task.id.toString()} index={taskIndex}>
-                          {(provided, snapshot) => (
-                            <li
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              className={`p-4 mb-2 min-h-[50px] ${snapshot.isDragging ? 'bg-blue-800' : 'bg-blue-600'} text-white rounded-lg shadow-md`}
-                              onClick={() => setSelectedTaskId(task.id)}
-                            >
-                              Task {taskIndex + 1}: {task.title}
-                            </li>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </ul>
-
-                    <button
-                      onClick={() => {
-                        setSelectedMilestoneId(milestone.id);
-                        handleAddTask(milestone.id, milestone.tasks.length);
-                      }}
-                      className="btn btn-secondary mt-2 w-full"
+        <div className="flex justify-center gap-4 mt-4">
+          <DragDropContext onDragEnd={handleDragEnd}>
+            {milestones?.length ? (
+              milestones.map((milestone, index) => (
+                <Droppable key={milestone.id} droppableId={milestone.id.toString()}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={`p-4 w-64 min-h-[500px] ${snapshot.isDraggingOver ? 'bg-blue-200' : 'bg-gray-200'} rounded-lg shadow-md`}
                     >
-                      Add Task
-                    </button>
-                  </div>
-                )}
-              </Droppable>
-            ))
-          ) : (
-            <p>No milestones yet.</p>
-          )}
-        </DragDropContext>
+                      <h3 className="text-xl font-semibold mb-2">Milestone {index + 1}</h3>
+                      <p className="text-sm mb-1"><strong>Title:</strong> {milestone.title}</p>
+                      <p className="text-sm mb-1"><strong>Description:</strong> {milestone.description}</p>
+                      <p className="text-sm mb-4">Due Date: {new Date(milestone.dueDate).toLocaleDateString()}</p>
+                      <h4 className="text-lg font-semibold mb-2">Tasks</h4>
+                      <ul>
+                        {milestone.tasks.map((task: Task, taskIndex: number) => (
+                          <Draggable key={task.id} draggableId={task.id.toString()} index={taskIndex}>
+                            {(provided, snapshot) => (
+                              <li
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                className={`p-4 mb-2 min-h-[50px] ${snapshot.isDragging ? 'bg-blue-800' : 'bg-blue-600'} text-white rounded-lg shadow-md`}
+                                onClick={() => setSelectedTaskId(task.id)}
+                              >
+                                Task {taskIndex + 1}: {task.title}
+                              </li>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </ul>
+
+                      <button
+                        onClick={() => {
+                          handleAddTask(milestone.id, milestone.tasks.length);
+                        }}
+                        className="btn btn-secondary mt-2 w-full"
+                      >
+                        Add Task
+                      </button>
+                    </div>
+                  )}
+                </Droppable>
+              ))
+            ) : (
+              <p>No milestones yet.</p>
+            )}
+          </DragDropContext>
+        </div>
       </div>
 
       {showMilestoneModal && (
