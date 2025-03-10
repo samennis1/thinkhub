@@ -5,19 +5,25 @@ import { eq } from "drizzle-orm";
 
 export const projectRouter = createTRPCRouter({
   create: protectedProcedure
-    .input(
-      z.object({
-        name: z.string().min(1),
-        description: z.string().optional(),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      await ctx.db.insert(projects).values({
+  .input(
+    z.object({
+      name: z.string().min(1),
+      description: z.string().optional(),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    const createdProjectId = await ctx.db
+      .insert(projects)
+      .values({
         name: input.name,
         description: input.description ?? "",
         createdBy: ctx.session.user.id,
-      });
-    }),
+      })
+      .$returningId();  // ✅ Correct method for MySQL in Drizzle ORM
+
+    console.log("✅ Created Project ID in Mutation (Server Log):", createdProjectId);  // 🔍 Important Debug Step
+    return createdProjectId;  
+  }),
 
   getProjects: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db
