@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { projects, projectMembers, documents } from "~/server/db/schema";
+import { projects, projectMembers, documents, users } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
 
 export const projectRouter = createTRPCRouter({
@@ -42,14 +42,33 @@ export const projectRouter = createTRPCRouter({
       });
     }),
 
-  getProjectDetails: protectedProcedure
+    getProjectDetails: protectedProcedure
     .input(z.object({ projectId: z.number() }))
     .query(async ({ ctx, input }) => {
       const project = await ctx.db.query.projects.findFirst({
         where: (fields) => eq(fields.id, input.projectId),
       });
 
-      return project ?? null;
+      if (!project) {
+        return null;
+      }
+
+      const members = await ctx.db
+        .select({
+          userId: projectMembers.userId,
+          email: users.email,
+          role: projectMembers.role,
+          joinedAt: projectMembers.joinedAt,
+        })
+        .from(projectMembers)
+        .innerJoin(users, eq(projectMembers.userId, users.id))
+        .where(eq(projectMembers.projectId, input.projectId));
+
+      const creator = await ctx.db.query.users.findFirst({
+        where: (fields) => eq(fields.id, project.createdBy),
+      });
+
+      return { ...project, members, creatorEmail: creator?.email };
     }),
 
   assignDocument: protectedProcedure
