@@ -8,7 +8,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautif
 interface Task {
   id: number;
   title: string;
-  description: string;
+  description: string | null;
   createdBy: string;
   order: number;
 }
@@ -16,8 +16,8 @@ interface Task {
 interface Milestone {
   id: number;
   title: string;
-  description: string;
-  dueDate: string;
+  description: string | null;
+  dueDate: Date;
   tasks: Task[];
 }
 
@@ -103,7 +103,7 @@ const ProjectDetailsPage: React.FC = () => {
   const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
   const [newMilestoneDescription, setNewMilestoneDescription] = useState("");
   const [newMilestoneDueDate, setNewMilestoneDueDate] = useState("");
-  const [newTaskTitle, setNewTaskTitle] = useState("");
+  // const [newTaskTitle, setNewTaskTitle] = useState("");
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<number | null>(null);
   const [showMilestoneModal, setShowMilestoneModal] = useState(false);
 
@@ -352,8 +352,8 @@ const ProjectDetailsPage: React.FC = () => {
 
       {selectedTaskId && (
         <TaskModal
-          taskId={selectedTaskId} // Pass the task ID to fetch data inside the modal
-          onClose={() => setSelectedTaskId(null)} // Close modal on exit
+          taskId={selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
         />
       )}
     </div>
