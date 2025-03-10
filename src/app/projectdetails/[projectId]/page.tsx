@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { TaskModal } from "~/app/_components/taskmodal";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
-import type { DropResult } from "react-beautiful-dnd"; // Use import type
+import type { DropResult } from "react-beautiful-dnd";
 import { useSession } from "next-auth/react";
 
 interface Task {
@@ -15,13 +15,6 @@ interface Task {
   order: number;
 }
 
-// interface Milestone {
-//   id: number;
-//   title: string;
-//   description: string | null;
-//   dueDate: Date;
-//   tasks: Task[];
-// }
 
 interface Document {
   id: number;
@@ -33,13 +26,19 @@ const ProjectDetailsPage: React.FC = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
-  const router = useRouter();
   const projectId = params.projectId ? Number(params.projectId) : null;
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
   const [newDocumentTitle, setNewDocumentTitle] = useState("");
   const [newDocumentUrl, setNewDocumentUrl] = useState("");
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [newMemberRole, setNewMemberRole] = useState<"Manager" | "Researcher" | "Viewer">("Viewer");
+  const [addMemberError, setAddMemberError] = useState("");
+  const [memberToDelete, setMemberToDelete] = useState<{ userId: string; email: string } | null>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [showMembers, setShowMembers] = useState(true);
 
   useEffect(() => {
     if (selectedTaskId !== null) {
@@ -47,17 +46,8 @@ const ProjectDetailsPage: React.FC = () => {
     }
   }, [selectedTaskId]);
 
-  useEffect(() => {
-    if (!projectId) {
-      router.push("/404"); // Redirect to 404 if projectId is invalid
-    }
-  }, [projectId, router]);
 
-  const handleBackToProjects = () => {
-    router.push("/projects");
-  };
-
-  const { data: project, isLoading, error } = api.project.getProjectDetails.useQuery(
+  const { data: project, isLoading, error, refetch: refetchProject } = api.project.getProjectDetails.useQuery(
     { projectId: projectId! },
     { enabled: !!projectId }
   );
@@ -72,6 +62,11 @@ const ProjectDetailsPage: React.FC = () => {
     { enabled: !!projectId }
   );
 
+  const {refetch: refetchUserId } = api.project.getUserIdByEmail.useQuery(
+    { email: newMemberEmail },
+    { enabled: false }
+  );
+
   const updateTaskMutation = api.details.updateTask.useMutation({
     onSuccess: () => {
       void refetchMilestones();
@@ -79,6 +74,29 @@ const ProjectDetailsPage: React.FC = () => {
     onError: (error) => {
       console.error("Error updating task:", error);
       alert("Failed to update task. Please try again.");
+    },
+  });
+
+  const deleteMemberMutation = api.project.deleteMember.useMutation({
+    onSuccess: () => {
+      void refetchProject();
+    },
+    onError: (error) => {
+      console.error("Error deleting member:", error);
+      alert("Failed to delete member. Please try again.");
+    },
+  });
+
+  const addMemberMutation = api.project.addMember.useMutation({
+    onSuccess: () => {
+      setShowAddMemberModal(false);
+      setNewMemberEmail("");
+      setNewMemberRole("Viewer");
+      void refetchProject();
+    },
+    onError: (error) => {
+      setAddMemberError("Failed to add member. Please try again.");
+      console.error("Error adding member:", error);
     },
   });
 
@@ -133,7 +151,17 @@ const ProjectDetailsPage: React.FC = () => {
 
   if (isLoading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
   if (error) return <div className="flex justify-center items-center h-screen">Error: {error.message}</div>;
-  if (!project) return <div className="flex justify-center items-center h-screen">Project not found</div>;
+  if (!project) return <div className="flex justify-center items-center h-screen">
+    <div className="text-center">
+      <h1 className="text-3xl font-bold mb-4">Project not found</h1>
+      <button
+        onClick={() => router.push('/homePage')}
+        className="bg-blue-500 text-white py-2 px-4 rounded mt-4"
+      >
+        Go to Home Page
+      </button>
+    </div>
+  </div>;
 
   if (isMember === false) {
     return (
@@ -158,6 +186,53 @@ const ProjectDetailsPage: React.FC = () => {
       title: newMilestoneTitle,
       description: newMilestoneDescription,
       dueDate: new Date(newMilestoneDueDate),
+    });
+  };
+
+  const handleDeleteMember = () => {
+    if (memberToDelete) {
+      deleteMemberMutation.mutate({
+        projectId: projectId!,
+        userId: memberToDelete.userId,
+      }, {
+        onSuccess: () => {
+          setShowDeleteConfirmation(false);
+          setMemberToDelete(null);
+          void refetchProject();
+        },
+        onError: (error) => {
+          console.error("Error deleting member:", error);
+          alert("Failed to delete member. Please try again.");
+        },
+      });
+    }
+  };
+
+
+
+  const handleAddMember = async () => {
+    setAddMemberError("");
+    const { data: userId } = await refetchUserId();
+    if (!userId) {
+      setAddMemberError("User not registered");
+      return;
+    }
+
+    addMemberMutation.mutate({
+      projectId: projectId!,
+      userId,
+      role: newMemberRole,
+    }, {
+      onSuccess: () => {
+        setShowAddMemberModal(false);
+        setNewMemberEmail("");
+        setNewMemberRole("Viewer");
+        void refetchProject();
+      },
+      onError: (error) => {
+        setAddMemberError("Failed to add member. Please try again.");
+        console.error("Error adding member:", error);
+      },
     });
   };
 
@@ -227,14 +302,44 @@ const ProjectDetailsPage: React.FC = () => {
     <div className="container mx-auto p-4">
       <div className="flex justify-between mb-8">
         <div className="w-1/4">
-          <h2 className="text-xl font-semibold mb-4">Members</h2>
-          <ul>
-            {project.members.map((member) => (
-              <li key={member.userId} className="mb-2">
-                {member.email} - {member.role}
-              </li>
-            ))}
-          </ul>
+          <div className="flex items-center mb-4">
+            <h2 className="text-xl font-semibold mr-2">Members</h2>
+            {isMember && session && project.members.some(member => member.userId === session.user.id && member.role === "Manager") && (
+              <button
+                onClick={() => setShowAddMemberModal(true)}
+                className="rounded-full w-8 h-8 flex items-center justify-center border-2 border-black text-black"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M12 3.75a.75.75 0 01.75.75v7.5h7.5a.75.75 0 010 1.5h-7.5v7.5a.75.75 0 01-1.5 0v-7.5H3.75a.75.75 0 010-1.5h7.5V4.5a.75.75 0 01.75-.75z" clipRule="evenodd" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {showMembers && (
+            <ul>
+              {project.members.map((member) => (
+                <li key={member.userId} className="mb-2 flex justify-between items-center">
+                  <span>{member.email} - {member.role}</span>
+                  {isMember && session && project.members.some(m => m.userId === session.user.id && m.role === "Manager") && (
+                    <button
+                      onClick={() => {
+                        setMemberToDelete({ userId: member.userId, email: member.email });
+                        setShowDeleteConfirmation(true);
+                      }}
+                      className="rounded-full w-8 h-8 flex items-center justify-center border-2 border-red-500 text-red-500"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                        <path fillRule="evenodd" d="M4.5 12a.75.75 0 01.75-.75h13.5a.75.75 0 010 1.5H5.25a.75.75 0 01-.75-.75z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          <button onClick={() => setShowMembers(!showMembers)} className="btn btn-secondary mt-2">
+            {showMembers ? "Hide Members" : "Show Members"}
+          </button>
         </div>
         <div className="w-1/2 text-center">
           <h1 className="text-3xl font-bold mb-2">{project?.name}</h1>
@@ -244,7 +349,7 @@ const ProjectDetailsPage: React.FC = () => {
         </div>
         <div className="w-1/4 text-right">
           <div className="flex justify-end items-center mb-4">
-            <h2 className="text-xl font-semibold mr-2">Documents</h2> {/* Added mr-2 for margin */}
+            <h2 className="text-xl font-semibold mr-2">Documents</h2>
             <button
               onClick={() => setShowDocumentModal(true)}
               className="rounded-full w-8 h-8 flex items-center justify-center border-2 border-black text-black"
@@ -336,6 +441,35 @@ const ProjectDetailsPage: React.FC = () => {
         </div>
       </div>
 
+      {showAddMemberModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-lg w-96 relative">
+            <span className="absolute top-2 right-2 text-2xl cursor-pointer" onClick={() => setShowAddMemberModal(false)}>
+              &times;
+            </span>
+            <h2 className="text-xl mb-4">Add Member</h2>
+            <input
+              type="email"
+              placeholder="Member Email"
+              value={newMemberEmail}
+              onChange={(e) => setNewMemberEmail(e.target.value)}
+              className="input input-bordered w-full mb-4"
+            />
+            <select
+              value={newMemberRole}
+              onChange={(e) => setNewMemberRole(e.target.value as "Manager" | "Researcher" | "Viewer")}
+              className="input input-bordered w-full mb-4"
+            >
+              <option value="Manager">Manager</option>
+              <option value="Researcher">Researcher</option>
+              <option value="Viewer">Viewer</option>
+            </select>
+            {addMemberError && <p className="text-red-500 mb-4">{addMemberError}</p>}
+            <button onClick={handleAddMember} className="btn btn-primary w-full">Submit</button>
+          </div>
+        </div>
+      )}
+
       {showMilestoneModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded-lg w-96 relative">
@@ -365,6 +499,32 @@ const ProjectDetailsPage: React.FC = () => {
               className="input input-bordered w-full mb-4"
             />
             <button onClick={handleAddMilestone} className="btn btn-primary w-full">Submit</button>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirmation && memberToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-lg w-96 relative">
+            <span className="absolute top-2 right-2 text-2xl cursor-pointer" onClick={() => setShowDeleteConfirmation(false)}>
+              &times;
+            </span>
+            <h2 className="text-xl mb-4">Confirm Deletion</h2>
+            <p>Are you sure you want to remove {memberToDelete.email} from the project?</p>
+            <div className="flex flex-col justify-end mt-4">
+              <button
+                onClick={handleDeleteMember}
+                className="btn bg-red-500 text-white mb-2"
+              >
+                Remove Member
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirmation(false)}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

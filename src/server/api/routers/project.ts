@@ -1,29 +1,37 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { projects, projectMembers, documents, users } from "~/server/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 export const projectRouter = createTRPCRouter({
   create: protectedProcedure
-  .input(
-    z.object({
-      name: z.string().min(1),
-      description: z.string().optional(),
-    })
-  )
-  .mutation(async ({ ctx, input }) => {
-    const createdProjectId = await ctx.db
-      .insert(projects)
-      .values({
-        name: input.name,
-        description: input.description ?? "",
-        createdBy: ctx.session.user.id,
+    .input(
+      z.object({
+        name: z.string().min(1),
+        description: z.string().optional(),
       })
-      .$returningId();  // ✅ Correct method for MySQL in Drizzle ORM
+    )
+    .mutation(async ({ ctx, input }) => {
+      const createdProjectId = await ctx.db
+        .insert(projects)
+        .values({
+          name: input.name,
+          description: input.description ?? "",
+          createdBy: ctx.session.user.id,
+        })
+        .$returningId();  // ✅ Correct method for MySQL in Drizzle ORM
 
-    console.log("✅ Created Project ID in Mutation (Server Log):", createdProjectId);  // 🔍 Important Debug Step
-    return createdProjectId;  
-  }),
+      console.log("✅ Created Project ID in Mutation (Server Log):", createdProjectId);  // 🔍 Important Debug Step
+      return createdProjectId;
+    }),
+  getUserIdByEmail: protectedProcedure
+    .input(z.object({ email: z.string().email() }))
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.db.query.users.findFirst({
+        where: (fields) => eq(fields.email, input.email),
+      });
+      return user ? user.id : null;
+    }),
 
   getProjects: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db
@@ -48,7 +56,23 @@ export const projectRouter = createTRPCRouter({
       });
     }),
 
-    getProjectDetails: protectedProcedure
+  deleteMember: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number(),
+        userId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.delete(projectMembers).where(
+        and(
+          eq(projectMembers.projectId, input.projectId),
+          eq(projectMembers.userId, input.userId)
+        )
+      );
+    }),
+
+  getProjectDetails: protectedProcedure
     .input(z.object({ projectId: z.number() }))
     .query(async ({ ctx, input }) => {
       const project = await ctx.db.query.projects.findFirst({
