@@ -17,32 +17,56 @@ enum TaskPriority {
   Lowest = "5",
 }
 
+interface Task {
+  id: number;
+  title: string;
+  description: string;
+  createdAt: Date;
+  createdBy: string;
+  dueDate: Date | null;
+  milestoneId: number | null;
+  order: number;
+  status: TaskStatus;
+  priority: TaskPriority;
+  policyHeader: string;
+  policyContent: string;
+  recommendedContent: string;
+  documentId: number | null;
+  projectId: number;
+  assignedTo: string;
+}
+
+interface DocumentType {
+  id: number;
+  createdAt: Date;
+  projectId: number;
+  title: string;
+  uploadedBy: string;
+  fileUrl: string | null;
+}
+
 interface TaskModalProps {
   taskId: number;
   onClose: () => void;
 }
 
 export function TaskModal({ taskId, onClose }: TaskModalProps) {
-  const [task] = api.tasks.getTask.useSuspenseQuery({
-    taskId,
-  });
+  const [task] = api.tasks.getTask.useSuspenseQuery<Task>({ taskId });
+  const [documents] = api.project.getDocuments.useSuspenseQuery<DocumentType[]>(
+    { projectId: task?.projectId ?? 0 },
+  );
+  const [fetchedDocument] =
+    api.document.getDocument.useSuspenseQuery<DocumentType>({
+      documentId: task?.documentId ?? 0,
+    });
 
-  const [assignedDocument, setAssignedDocument] = useState<any>(null);
+  const [assignedDocument, setAssignedDocument] = useState<DocumentType | null>(
+    null,
+  );
 
   useEffect(() => {
-    if (task?.documentId) {
-      const fetchedDocument = api.document.getDocument.useSuspenseQuery({
-        documentId: task?.documentId || 0,
-      });
-      setAssignedDocument(fetchedDocument);
-    } else {
-      setAssignedDocument(null);
-    }
-  }, [task]);
-
-  const [documents] = api.project.getDocuments.useSuspenseQuery({
-    projectId: task?.projectId || 0,
-  });
+    setAssignedDocument(fetchedDocument ?? null);
+  }, [fetchedDocument]);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -57,25 +81,20 @@ export function TaskModal({ taskId, onClose }: TaskModalProps) {
 
   useEffect(() => {
     if (task) {
-      setTitle(task.title || "");
-      setDescription(task.description || "");
-      setStatus((task.status as TaskStatus) || TaskStatus.ToDo);
-      setPriority((task.priority as TaskPriority) || TaskPriority.Medium);
-      setPolicyHeader(task.policyHeader || "");
-      setPolicyContent(task.policyContent || "");
-      setRecommendedContent(task.recommendedContent || "");
-      setDocumentId(task.documentId || null);
+      setTitle(task.title);
+      setDescription(task.description);
+      setStatus(task.status);
+      setPriority(task.priority);
+      setPolicyHeader(task.policyHeader);
+      setPolicyContent(task.policyContent);
+      setRecommendedContent(task.recommendedContent);
+      setDocumentId(task.documentId ?? null);
     }
   }, [task]);
 
   useEffect(() => {
-    if (assignedDocument) {
-      setDocumentTitle(assignedDocument?.[0]?.title || "");
-      setDocumentLink(assignedDocument?.[0]?.fileUrl || "");
-    } else {
-      setDocumentTitle("");
-      setDocumentLink("");
-    }
+    setDocumentTitle(assignedDocument?.title ?? "");
+    setDocumentLink(assignedDocument?.fileUrl ?? "");
   }, [assignedDocument]);
 
   const utils = api.useUtils();
@@ -102,61 +121,51 @@ export function TaskModal({ taskId, onClose }: TaskModalProps) {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Task Title"
             className="w-full rounded border p-2"
           />
-
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Task Description"
             className="w-full rounded border p-2"
           />
-
           <select
-            className="w-full rounded border p-2"
             value={status}
             onChange={(e) => setStatus(e.target.value as TaskStatus)}
-          >
-            <option value="To Do">To Do</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Completed">Completed</option>
-          </select>
-
-          <select
             className="w-full rounded border p-2"
+          >
+            {Object.values(TaskStatus).map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          <select
             value={priority}
             onChange={(e) => setPriority(e.target.value as TaskPriority)}
+            className="w-full rounded border p-2"
           >
-            <option value="1">1 (Highest)</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5 (Lowest)</option>
+            {Object.values(TaskPriority).map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
           </select>
-
           <input
             type="text"
             value={policyHeader}
             onChange={(e) => setPolicyHeader(e.target.value)}
-            placeholder="Policy Header"
             className="w-full rounded border p-2"
           />
-
           <textarea
             value={policyContent}
             onChange={(e) => setPolicyContent(e.target.value)}
-            placeholder="Policy Content"
             className="w-full rounded border p-2"
           />
-
           <textarea
             value={recommendedContent}
             onChange={(e) => setRecommendedContent(e.target.value)}
-            placeholder="Recommended Content"
             className="w-full rounded border p-2"
           />
-
           <div>
             <p className="text-sm font-medium">
               Selected Document: {documentTitle || "None"}
@@ -170,8 +179,6 @@ export function TaskModal({ taskId, onClose }: TaskModalProps) {
               {documentLink ? "Open Document" : "No Document Selected"}
             </p>
           </div>
-
-          {}
           <select
             className="w-full rounded border p-2"
             onChange={(e) => {
@@ -181,7 +188,7 @@ export function TaskModal({ taskId, onClose }: TaskModalProps) {
               if (selectedDoc) {
                 setDocumentId(selectedDoc.id);
                 setDocumentTitle(selectedDoc.title);
-                setDocumentLink(selectedDoc.fileUrl || "");
+                setDocumentLink(selectedDoc.fileUrl ?? "");
               }
             }}
           >
@@ -193,44 +200,34 @@ export function TaskModal({ taskId, onClose }: TaskModalProps) {
             ))}
           </select>
         </div>
-
-        {}
         <div className="mt-4 flex justify-end gap-2">
           <button
-            onClick={() => {
-              if (task) {
-                editTask.mutate({
-                  id: task.id,
-                  title,
-                  description,
-                  status,
-                  priority,
-                  policyHeader,
-                  policyContent,
-                  recommendedContent,
-                  documentIds: documentId ?? 0,
-                });
-              }
-            }}
-            disabled={editTask.isPending}
-            className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
+            onClick={() =>
+              task &&
+              editTask.mutate({
+                ...task,
+                title,
+                description,
+                status,
+                priority,
+                policyHeader,
+                policyContent,
+                recommendedContent,
+                documentIds: documentId ?? 0,
+                dueDate: task.dueDate ? task.dueDate.toISOString() : undefined,
+              })
+            }
+            className="rounded bg-blue-500 px-4 py-2 text-white"
           >
-            {editTask.isPending ? "Saving..." : "Save"}
+            Save
           </button>
           <button
-            onClick={() => {
-              if (task) {
-                deleteTask.mutate({ id: task.id });
-              }
-            }}
-            className="rounded bg-red-500 px-4 py-2 text-white hover:bg-red-600"
+            onClick={() => task && deleteTask.mutate({ id: task.id })}
+            className="rounded bg-red-500 px-4 py-2 text-white"
           >
             Delete
           </button>
-          <button
-            onClick={onClose}
-            className="rounded bg-gray-300 px-4 py-2 hover:bg-gray-400"
-          >
+          <button onClick={onClose} className="rounded bg-gray-300 px-4 py-2">
             Cancel
           </button>
         </div>

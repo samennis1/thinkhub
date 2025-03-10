@@ -18,13 +18,16 @@ export default function ProjectsPage() {
     }
   }, [session, status]);
 
-  const { data: projects, isLoading, error } = api.project.getProjects.useQuery(
-    undefined,
-    { enabled: !!userID }
-  );
+  const {
+    data: projects,
+    isLoading,
+    error,
+  } = api.project.getProjects.useQuery(undefined, { enabled: !!userID });
 
-  if (status === "loading") return <p className="text-white">Loading session...</p>;
-  if (!session) return <p className="text-red-500">Please log in to view your projects.</p>;
+  if (status === "loading")
+    return <p className="text-white">Loading session...</p>;
+  if (!session)
+    return <p className="text-red-500">Please log in to view your projects.</p>;
   if (isLoading) return <p className="text-white">Loading projects...</p>;
   if (error) return <p className="text-red-500">Error: {error.message}</p>;
 
@@ -48,23 +51,36 @@ export default function ProjectsPage() {
       {/* Project List */}
       {projects && projects.length > 0 ? (
         <ul className="space-y-4">
-          {projects.map((project: { id: number; name: string; description: string | null }) => (
-            <li
-              key={project.id}
-              className="rounded-lg bg-gray-700 p-4 cursor-pointer hover:bg-gray-600 transition"
-              onClick={() => handleProjectClick(project.id)} // ✅ Clickable project
-            >
-              <h2 className="text-lg font-semibold text-white">{project.name}</h2>
-              <p className="text-gray-300">{project.description || "No description provided."}</p>
-            </li>
-          ))}
+          {projects.map(
+            (project: {
+              id: number;
+              name: string;
+              description: string | null;
+            }) => (
+              <li
+                key={project.id}
+                className="cursor-pointer rounded-lg bg-gray-700 p-4 transition hover:bg-gray-600"
+                onClick={() => handleProjectClick(project.id)} // ✅ Clickable project
+              >
+                <h2 className="text-lg font-semibold text-white">
+                  {project.name}
+                </h2>
+                <p className="text-gray-300">
+                  {project.description ?? "No description provided."}
+                </p>
+              </li>
+            ),
+          )}
         </ul>
       ) : (
         <p className="text-gray-400">No projects found.</p>
       )}
 
       {/* Create Project Modal */}
-      <CreateProjectModal isOpen={isModalOpen} onClose={() => setModalOpen(false)} />
+      <CreateProjectModal
+        isOpen={isModalOpen}
+        onClose={() => setModalOpen(false)}
+      />
     </div>
   );
 }
