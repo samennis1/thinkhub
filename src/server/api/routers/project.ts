@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { projects, projectMembers, documents, users } from "~/server/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 
 export const projectRouter = createTRPCRouter({
   create: protectedProcedure
@@ -27,14 +27,6 @@ export const projectRouter = createTRPCRouter({
       );
       return createdProjectId;
     }),
-  getUserIdByEmail: protectedProcedure
-    .input(z.object({ email: z.string().email() }))
-    .query(async ({ ctx, input }) => {
-      const user = await ctx.db.query.users.findFirst({
-        where: (fields) => eq(fields.email, input.email),
-      });
-      return user ? user.id : null;
-    }),
 
   getProjects: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db
@@ -43,29 +35,75 @@ export const projectRouter = createTRPCRouter({
       .where(eq(projects.createdBy, ctx.session.user.id));
   }),
 
+  // ✅ Search for Users by Email (Partial Match for Fuzzy Search)
+  searchUsersByEmail: protectedProcedure
+    .input(z.object({ email: z.string().min(3) }))
+    .query(async ({ ctx, input }) => {
+      const matchingUsers = await ctx.db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+        })
+        .from(users)
+        .where(like(users.email, `%${input.email}%`))
+        .limit(5);
+
+      return matchingUsers;
+    }),
+
+  // ✅ Get User ID by Email (Exact Match)
+  getUserIdByEmail: protectedProcedure
+    .input(z.object({ email: z.string().email() }))
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+        })
+        .from(users)
+        .where(eq(users.email, input.email))
+        .limit(1);
+
+      if (!user[0]) {
+        throw new Error("User not found.");
+      }
+
+      return user[0];
+    }),
+
   addMember: protectedProcedure
     .input(
       z.object({
         projectId: z.number(),
-        userId: z.string(),
+        email: z.string().email(),
         role: z.enum(["Manager", "Researcher", "Viewer"]),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const manager = await ctx.db.query.projectMembers.findFirst({
-        where: (fields) =>
-          eq(fields.projectId, input.projectId) &&
-          eq(fields.userId, ctx.session.user.id) &&
-          eq(fields.role, "Manager"),
+      const user = await ctx.db.query.users.findFirst({
+        where: eq(users.email, input.email),
       });
 
-      if (!manager) {
-        throw new Error("Only Managers can add members to this project.");
+      if (!user) {
+        throw new Error("User not found.");
+      }
+
+      const existingMember = await ctx.db.query.projectMembers.findFirst({
+        where: and(
+          eq(projectMembers.projectId, input.projectId),
+          eq(projectMembers.userId, user.id),
+        ),
+      });
+
+      if (existingMember) {
+        throw new Error("User is already a member of this project.");
       }
 
       await ctx.db.insert(projectMembers).values({
         projectId: input.projectId,
-        userId: input.userId,
+        userId: user.id,
         role: input.role,
       });
 
