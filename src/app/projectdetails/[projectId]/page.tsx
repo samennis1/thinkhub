@@ -162,7 +162,7 @@ const ProjectDetailsPage: React.FC = () => {
         <div className="text-center">
           <h1 className="mb-4 text-3xl font-bold">Project not found</h1>
           <button
-            onClick={() => router.push("/homePage")}
+            onClick={() => router.push("/homepage")}
             className="mt-4 rounded bg-blue-500 px-4 py-2 text-white"
           >
             Go to Home Page
@@ -181,7 +181,7 @@ const ProjectDetailsPage: React.FC = () => {
             Please contact {project.creatorEmail} to be added to the project.
           </p>
           <button
-            onClick={() => router.push("/homePage")}
+            onClick={() => router.push("/homepage")}
             className="mt-4 rounded bg-blue-500 px-4 py-2 text-white"
           >
             Go to Home Page
