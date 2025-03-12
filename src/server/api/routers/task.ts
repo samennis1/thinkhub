@@ -10,9 +10,9 @@ export const taskRouter = createTRPCRouter({
         id: z.number(),
         title: z.string().min(1),
         description: z.string().optional(),
-        assignedTo: z.string().optional(),
+        assignedTo: z.string().optional().nullable(),
         dueDate: z.string().optional(),
-        documentIds: z.number(),
+        documentIds: z.number().optional(),
         priority: z.enum(["1", "2", "3", "4", "5"]),
         status: z.enum(["To Do", "In Progress", "Completed"]),
         policyContent: z.string().optional(),
@@ -88,41 +88,47 @@ export const taskRouter = createTRPCRouter({
       await ctx.db.delete(tasks).where(eq(tasks.id, input.id));
     }),
 
-  getProjectDetails: protectedProcedure
+  getProjectTasks: protectedProcedure
     .input(z.object({ projectId: z.number() }))
     .query(async ({ ctx, input }) => {
       const project = await ctx.db.query.projects.findFirst({
         where: (fields) => eq(fields.id, input.projectId),
-        columns: { name: true },
+        columns: { id: true, name: true },
       });
 
       if (!project) {
         throw new Error("Project not found");
       }
 
-      const milestonesWithTasks = await ctx.db.query.milestones.findMany({
+      const tasksList = await ctx.db.query.tasks.findMany({
         where: (fields) => eq(fields.projectId, input.projectId),
-        columns: { id: true, title: true, description: true },
-        with: {
-          tasks: {
-            orderBy: tasks.order,
-            columns: {
-              id: true,
-              title: true,
-              description: true,
-              status: true,
-              order: true,
-            },
-          },
+        columns: {
+          id: true,
+          title: true,
+          description: true,
+          status: true,
+          priority: true,
+          assignedTo: true,
+          documentId: true,
+          policyHeader: true,
+          policyContent: true,
+          recommendedContent: true,
         },
       });
 
       return {
         projectTitle: project.name,
-        milestones: milestonesWithTasks.map((milestone) => ({
-          title: milestone.title,
-          description: milestone.description,
-          tasks: milestone.tasks,
+        tasks: tasksList.map((task) => ({
+          id: task.id,
+          title: task.title,
+          description: task.description ?? "No description provided",
+          status: task.status ?? "No status",
+          priority: task.priority ?? "No priority",
+          assignedTo: task.assignedTo ?? "Unassigned",
+          documentId: task.documentId ?? null,
+          policyHeader: task.policyHeader ?? "No policy header",
+          policyContent: task.policyContent ?? "No policy content",
+          recommendedContent: task.recommendedContent ?? "No recommendations",
         })),
       };
     }),

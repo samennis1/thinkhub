@@ -168,7 +168,7 @@ export const tasks = createTable("task", {
     .notNull()
     .references(() => users.id),
   assignedTo: varchar("assigned_to", { length: 255 }).references(
-    () => users.id,
+    () => projectMembers.userId,
   ),
   dueDate: timestamp("due_date"),
   createdAt: timestamp("created_at")

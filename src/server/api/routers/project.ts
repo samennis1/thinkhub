@@ -9,7 +9,7 @@ export const projectRouter = createTRPCRouter({
       z.object({
         name: z.string().min(1),
         description: z.string().optional(),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const createdProjectId = await ctx.db
@@ -19,9 +19,12 @@ export const projectRouter = createTRPCRouter({
           description: input.description ?? "",
           createdBy: ctx.session.user.id,
         })
-        .$returningId();  // ✅ Correct method for MySQL in Drizzle ORM
+        .$returningId();
 
-      console.log("✅ Created Project ID in Mutation (Server Log):", createdProjectId);  // 🔍 Important Debug Step
+      console.log(
+        "✅ Created Project ID in Mutation (Server Log):",
+        createdProjectId,
+      );
       return createdProjectId;
     }),
   getUserIdByEmail: protectedProcedure
@@ -64,12 +67,14 @@ export const projectRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.delete(projectMembers).where(
-        and(
-          eq(projectMembers.projectId, input.projectId),
-          eq(projectMembers.userId, input.userId)
-        )
-      );
+      await ctx.db
+        .delete(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, input.projectId),
+            eq(projectMembers.userId, input.userId),
+          ),
+        );
     }),
 
   getProjectDetails: protectedProcedure
@@ -125,5 +130,22 @@ export const projectRouter = createTRPCRouter({
         .select()
         .from(documents)
         .where(eq(documents.projectId, input.projectId));
+    }),
+
+  getProjectMembers: protectedProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db
+        .select({
+          id: projectMembers.id,
+          userId: projectMembers.userId,
+          projectId: projectMembers.projectId,
+          role: projectMembers.role,
+          joinedAt: projectMembers.joinedAt,
+          name: users.name,
+        })
+        .from(projectMembers)
+        .innerJoin(users, eq(projectMembers.userId, users.id))
+        .where(eq(projectMembers.projectId, input.projectId));
     }),
 });
