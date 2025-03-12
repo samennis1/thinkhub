@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, Fragment } from "react";
+import { useState, Fragment, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, Transition } from "@headlessui/react";
 import { api } from "~/trpc/react";
+import { useSession } from "next-auth/react"; // Import for session data
 
 interface CreateProjectModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export default function CreateProjectModal({
   isOpen,
   onClose,
 }: CreateProjectModalProps) {
+  const { data: session } = useSession();
   const utils = api.useUtils();
   const router = useRouter();
   const [name, setName] = useState("");
@@ -36,16 +38,24 @@ export default function CreateProjectModal({
   const [memberEmail, setMemberEmail] = useState("");
   const [pendingMembers, setPendingMembers] = useState<PendingMember[]>([]);
 
+  // Automatically add the project creator as Manager
+  useEffect(() => {
+    if (session?.user) {
+      setPendingMembers([
+        {
+          id: session.user.id,
+          email: session.user.email ?? "",
+          name: session.user.name ?? "",
+          role: "Manager",
+        },
+      ]);
+    }
+  }, [session]);
+
   const { data: searchResults } = api.project.searchUsersByEmail.useQuery(
     { email: memberEmail },
     { enabled: memberEmail.length >= 3 },
   );
-
-  const { data: preciseUser, refetch: refetchUser } =
-    api.project.getUserIdByEmail.useQuery(
-      { email: memberEmail },
-      { enabled: false },
-    );
 
   const createProject = api.project.create.useMutation({
     onSuccess: async (data) => {
@@ -101,26 +111,15 @@ export default function CreateProjectModal({
     setMemberEmail(""); // Clear search field after adding
   };
 
-  const handleAddExactUser = async () => {
-    await refetchUser();
-
-    if (!preciseUser) {
-      alert("User not found.");
-      return;
-    }
-
-    const isAlreadyAdded = pendingMembers.some(
-      (member) => member.id === preciseUser.id,
+  const handleRoleChange = (
+    userId: string,
+    newRole: "Manager" | "Researcher" | "Viewer",
+  ) => {
+    setPendingMembers((prev) =>
+      prev.map((member) =>
+        member.id === userId ? { ...member, role: newRole } : member
+      )
     );
-
-    if (!isAlreadyAdded) {
-      setPendingMembers((prev) => [
-        ...prev,
-        { ...preciseUser, role: "Researcher", name: preciseUser.name ?? undefined }, // Default role
-      ]);
-    }
-
-    setMemberEmail(""); // Clear search field after adding
   };
 
   return (
@@ -209,15 +208,6 @@ export default function CreateProjectModal({
                   </ul>
                 )}
 
-                {/* Exact Match Add */}
-                <button
-                  type="button"
-                  className="mt-2 rounded-lg bg-blue-500 px-4 py-2 text-white"
-                  onClick={handleAddExactUser}
-                >
-                  Add Exact Match
-                </button>
-
                 {/* Pending Members List */}
                 <div className="mt-4">
                   <h3 className="mb-2 text-sm font-medium text-gray-700">
@@ -242,6 +232,22 @@ export default function CreateProjectModal({
                               {member.email}
                             </p>
                           </div>
+
+                          {/* Role Dropdown */}
+                          <select
+                            value={member.role}
+                            onChange={(e) =>
+                              handleRoleChange(
+                                member.id,
+                                e.target.value as "Manager" | "Researcher" | "Viewer",
+                              )
+                            }
+                            className="ml-4 rounded-md border border-gray-300 p-1"
+                          >
+                            <option value="Manager">Manager</option>
+                            <option value="Researcher">Researcher</option>
+                            <option value="Viewer">Viewer</option>
+                          </select>
                         </li>
                       ))}
                     </ul>
