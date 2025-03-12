@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { projects, projectMembers, documents } from "~/server/db/schema";
-import { eq } from "drizzle-orm";
+import { projects, projectMembers, documents, users } from "~/server/db/schema";
+import { and, eq } from "drizzle-orm";
 
 export const projectRouter = createTRPCRouter({
   create: protectedProcedure
@@ -12,7 +12,7 @@ export const projectRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const [newProject] = await ctx.db
+      const createdProjectId = await ctx.db
         .insert(projects)
         .values({
           name: input.name,
@@ -21,17 +21,19 @@ export const projectRouter = createTRPCRouter({
         })
         .$returningId();
 
-      if (!newProject?.id) {
-        throw new Error("Failed to create project.");
-      }
-
-      await ctx.db.insert(projectMembers).values({
-        projectId: newProject.id,
-        userId: ctx.session.user.id,
-        role: "Manager",
+      console.log(
+        "✅ Created Project ID in Mutation (Server Log):",
+        createdProjectId,
+      );
+      return createdProjectId;
+    }),
+  getUserIdByEmail: protectedProcedure
+    .input(z.object({ email: z.string().email() }))
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.db.query.users.findFirst({
+        where: (fields) => eq(fields.email, input.email),
       });
-
-      return { projectId: newProject.id };
+      return user ? user.id : null;
     }),
 
   getProjects: protectedProcedure.query(async ({ ctx }) => {
@@ -69,6 +71,25 @@ export const projectRouter = createTRPCRouter({
 
       return { success: true };
     }),
+
+  deleteMember: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.number(),
+        userId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .delete(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, input.projectId),
+            eq(projectMembers.userId, input.userId),
+          ),
+        );
+    }),
+
   getProjectDetails: protectedProcedure
     .input(z.object({ projectId: z.number() }))
     .query(async ({ ctx, input }) => {
@@ -76,7 +97,26 @@ export const projectRouter = createTRPCRouter({
         where: (fields) => eq(fields.id, input.projectId),
       });
 
-      return project ?? null;
+      if (!project) {
+        return null;
+      }
+
+      const members = await ctx.db
+        .select({
+          userId: projectMembers.userId,
+          email: users.email,
+          role: projectMembers.role,
+          joinedAt: projectMembers.joinedAt,
+        })
+        .from(projectMembers)
+        .innerJoin(users, eq(projectMembers.userId, users.id))
+        .where(eq(projectMembers.projectId, input.projectId));
+
+      const creator = await ctx.db.query.users.findFirst({
+        where: (fields) => eq(fields.id, project.createdBy),
+      });
+
+      return { ...project, members, creatorEmail: creator?.email };
     }),
 
   assignDocument: protectedProcedure
@@ -103,5 +143,22 @@ export const projectRouter = createTRPCRouter({
         .select()
         .from(documents)
         .where(eq(documents.projectId, input.projectId));
+    }),
+
+  getProjectMembers: protectedProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db
+        .select({
+          id: projectMembers.id,
+          userId: projectMembers.userId,
+          projectId: projectMembers.projectId,
+          role: projectMembers.role,
+          joinedAt: projectMembers.joinedAt,
+          name: users.name,
+        })
+        .from(projectMembers)
+        .innerJoin(users, eq(projectMembers.userId, users.id))
+        .where(eq(projectMembers.projectId, input.projectId));
     }),
 });

@@ -80,7 +80,7 @@ export const detailsRouter = createTRPCRouter({
         title: z.string().optional(),
         createdBy: z.string(),
         order: z.number(),
-      })
+      }),
     )
     .mutation(async ({ input, ctx }) => {
       const result = await ctx.db
@@ -132,7 +132,7 @@ export const detailsRouter = createTRPCRouter({
       const updateTasks = taskIds.map((taskId, index) =>
         ctx.db.update(tasks).set({ order: index }).where(eq(tasks.id, taskId)),
       );
-      await ctx.db.transaction(async (tx) => {
+      await ctx.db.transaction(async () => {
         for (const updateTask of updateTasks) {
           await updateTask.execute();
         }
