@@ -221,15 +221,19 @@ const ProjectDetailsPage: React.FC = () => {
   };
   const handleAddMember = async () => {
     setAddMemberError("");
-    const { data: userId } = await refetchUserId();
-    if (!userId) {
+
+    // Use refetch to retrieve precise user details
+    const { data: preciseUser } = await refetchUserId();
+
+    if (!preciseUser) {
       setAddMemberError("User not registered");
       return;
     }
+
     addMemberMutation.mutate(
       {
         projectId: projectId!,
-        userId,
+        email: preciseUser.email, // Use `email` instead of `userId`
         role: newMemberRole,
       },
       {
@@ -246,6 +250,7 @@ const ProjectDetailsPage: React.FC = () => {
       },
     );
   };
+
   const handleAddTask = (milestoneId: number, tasksCount: number) => {
     if (milestoneId !== null) {
       addTaskMutation.mutate(
