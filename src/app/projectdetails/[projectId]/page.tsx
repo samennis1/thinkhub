@@ -222,7 +222,6 @@ const ProjectDetailsPage: React.FC = () => {
   const handleAddMember = async () => {
     setAddMemberError("");
 
-    // Use refetch to retrieve precise user details
     const { data: preciseUser } = await refetchUserId();
 
     if (!preciseUser) {
@@ -233,7 +232,7 @@ const ProjectDetailsPage: React.FC = () => {
     addMemberMutation.mutate(
       {
         projectId: projectId!,
-        email: preciseUser.email, // Use `email` instead of `userId`
+        email: preciseUser.email, 
         role: newMemberRole,
       },
       {

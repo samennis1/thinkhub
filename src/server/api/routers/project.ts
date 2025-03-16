@@ -22,7 +22,7 @@ export const projectRouter = createTRPCRouter({
         .$returningId();
 
       console.log(
-        "✅ Created Project ID in Mutation (Server Log):",
+        " Created Project ID in Mutation (Server Log):",
         createdProjectId,
       );
       return createdProjectId;
@@ -35,7 +35,6 @@ export const projectRouter = createTRPCRouter({
       .where(eq(projects.createdBy, ctx.session.user.id));
   }),
 
-  // ✅ Search for Users by Email (Partial Match for Fuzzy Search)
   searchUsersByEmail: protectedProcedure
     .input(z.object({ email: z.string().min(3) }))
     .query(async ({ ctx, input }) => {
@@ -52,7 +51,6 @@ export const projectRouter = createTRPCRouter({
       return matchingUsers;
     }),
 
-  // ✅ Get User ID by Email (Exact Match)
   getUserIdByEmail: protectedProcedure
     .input(z.object({ email: z.string().email() }))
     .query(async ({ ctx, input }) => {

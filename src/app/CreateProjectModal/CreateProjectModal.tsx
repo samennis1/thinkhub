@@ -4,7 +4,7 @@ import { useState, Fragment, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, Transition } from "@headlessui/react";
 import { api } from "~/trpc/react";
-import { useSession } from "next-auth/react"; // Import for session data
+import { useSession } from "next-auth/react"; 
 
 interface CreateProjectModalProps {
   isOpen: boolean;
@@ -34,11 +34,9 @@ export default function CreateProjectModal({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
-  // Member Management
   const [memberEmail, setMemberEmail] = useState("");
   const [pendingMembers, setPendingMembers] = useState<PendingMember[]>([]);
 
-  // Automatically add the project creator as Manager
   useEffect(() => {
     if (session?.user) {
       setPendingMembers([
@@ -96,7 +94,6 @@ export default function CreateProjectModal({
     },
   });
 
-  // Add a selected user to pending members
   const handleSelectUser = (user: User) => {
     const isAlreadyAdded = pendingMembers.some(
       (member) => member.id === user.id,
@@ -105,10 +102,10 @@ export default function CreateProjectModal({
     if (!isAlreadyAdded) {
       setPendingMembers((prev) => [
         ...prev,
-        { ...user, role: "Researcher" }, // Default role
+        { ...user, role: "Researcher" }, 
       ]);
     }
-    setMemberEmail(""); // Clear search field after adding
+    setMemberEmail(""); 
   };
 
   const handleRoleChange = (
